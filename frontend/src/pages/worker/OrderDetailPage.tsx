@@ -25,15 +25,17 @@ export function WorkerOrderDetailPage() {
     return <LoadingView />;
   }
 
+  const currentOrder = order;
+
   async function handleDelete() {
-    const confirmed = window.confirm(`确认删除订单「${order.order_no}」吗？仅已结算或已取消订单允许删除。`);
+    const confirmed = window.confirm(`确认删除订单「${currentOrder.order_no}」吗？仅已结算或已取消订单允许删除。`);
     if (!confirmed) {
       return;
     }
 
     setDeleting(true);
     try {
-      await apiDelete(`/api/worker/orders/${order.id}`);
+      await apiDelete(`/api/worker/orders/${currentOrder.id}`);
       window.alert('订单删除成功');
       navigate('/worker/orders', { replace: true });
     } catch (error) {
@@ -45,7 +47,7 @@ export function WorkerOrderDetailPage() {
 
   return (
     <OrderDetailPanel
-      order={order}
+      order={currentOrder}
       backTo="/worker/orders"
       viewerRole="worker"
       actions={
@@ -53,8 +55,8 @@ export function WorkerOrderDetailPage() {
           type="button"
           className="btn-danger"
           onClick={() => void handleDelete()}
-          disabled={deleting || !canDeleteOrder(order.status)}
-          title={canDeleteOrder(order.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
+          disabled={deleting || !canDeleteOrder(currentOrder.status)}
+          title={canDeleteOrder(currentOrder.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
         >
           {deleting ? '删除中...' : '删除订单'}
         </button>
