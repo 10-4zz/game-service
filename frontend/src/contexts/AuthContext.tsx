@@ -5,14 +5,23 @@ import {
   useState,
   type PropsWithChildren
 } from 'react';
-import { apiGet, clearStoredToken, getStoredToken, loginRequest, logoutRequest, setStoredToken } from '../lib/api';
-import type { AuthUser } from '../types';
+import {
+  apiGet,
+  clearStoredToken,
+  getStoredToken,
+  loginRequest,
+  logoutRequest,
+  registerCustomerRequest,
+  setStoredToken
+} from '../lib/api';
+import type { AuthUser, Role } from '../types';
 
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<AuthUser>;
+  login: (username: string, password: string, role: Role) => Promise<AuthUser>;
+  registerCustomer: (username: string, password: string, displayName: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
@@ -48,8 +57,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     void bootstrap();
   }, []);
 
-  async function login(username: string, password: string) {
-    const result = await loginRequest(username, password);
+  async function login(username: string, password: string, role: Role) {
+    const result = await loginRequest(username, password, role);
+    setStoredToken(result.token);
+    setToken(result.token);
+    setUser(result.user);
+    return result.user;
+  }
+
+  async function registerCustomer(username: string, password: string, displayName: string) {
+    const result = await registerCustomerRequest(username, password, displayName);
     setStoredToken(result.token);
     setToken(result.token);
     setUser(result.user);
@@ -90,6 +107,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         token,
         loading,
         login,
+        registerCustomer,
         logout,
         refreshMe
       }}

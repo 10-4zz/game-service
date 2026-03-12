@@ -15,9 +15,15 @@ const ORDER_STATUSES = [
   'settled',
   'cancelled'
 ];
+const USER_ROLES = ['admin', 'worker', 'customer'];
 const MUTABLE_ORDER_STATUSES = ['pending_assignment', 'in_progress', 'completed', 'cancelled'];
 const RECHARGE_STATUSES = ['pending', 'approved', 'rejected'];
 const PAYMENT_METHODS = ['alipay', 'wechat'];
+const ROLE_LABEL_MAP = {
+  admin: '管理员',
+  worker: '打手',
+  customer: '客户'
+};
 
 const ORDER_SELECT_SQL = `
   SELECT
@@ -68,6 +74,10 @@ export default {
 
       if (pathname === '/api/login' && method === 'POST') {
         return handleLogin(request, env);
+      }
+
+      if (pathname === '/api/register' && method === 'POST') {
+        return handleRegister(request, env);
       }
 
       if (pathname === '/api/logout' && method === 'POST') {
@@ -583,6 +593,11 @@ async function handleLogin(request, env) {
   const body = await parseJson(request);
   const username = trimString(body.username);
   const password = trimString(body.password);
+  const role = trimString(body.role);
+
+  if (!USER_ROLES.includes(role)) {
+    return fail(request, env, 400, '请选择正确的角色登录入口。');
+  }
 
   if (!username || !password) {
     return fail(request, env, 400, '请输入账号和密码。');
@@ -598,6 +613,16 @@ async function handleLogin(request, env) {
     return fail(request, env, 401, '账号或密码错误。', 'LOGIN_FAILED');
   }
 
+  if (user.role !== role) {
+    return fail(
+      request,
+      env,
+      403,
+      `该账号属于${ROLE_LABEL_MAP[user.role] || '其他角色'}，请使用对应入口登录。`,
+      'ROLE_LOGIN_MISMATCH'
+    );
+  }
+
   const authUser = {
     id: user.id,
     username: user.username,
@@ -607,6 +632,59 @@ async function handleLogin(request, env) {
   const token = await createToken(authUser, env.JWT_SECRET);
 
   return ok(request, env, { token, user: authUser });
+}
+
+async function handleRegister(request, env) {
+  const body = await parseJson(request);
+  const username = trimString(body.username);
+  const password = trimString(body.password);
+  const displayName = trimString(body.display_name);
+
+  if (!username || !password || !displayName) {
+    return fail(request, env, 400, '用户名、密码和显示名称均不能为空。');
+  }
+
+  if (!/^[a-zA-Z0-9_]{4,24}$/.test(username)) {
+    return fail(request, env, 400, '用户名需为 4 到 24 位字母、数字或下划线。');
+  }
+
+  if (password.length < 6 || password.length > 64) {
+    return fail(request, env, 400, '密码长度需在 6 到 64 位之间。');
+  }
+
+  if (displayName.length < 2 || displayName.length > 24) {
+    return fail(request, env, 400, '显示名称长度需在 2 到 24 位之间。');
+  }
+
+  const existingUser = await getUserByUsername(env.DB, username);
+  if (existingUser) {
+    return fail(request, env, 409, '用户名已存在，请更换后重试。', 'USERNAME_EXISTS');
+  }
+
+  const passwordHash = await sha256Hex(password);
+
+  try {
+    const result = await execute(
+      env.DB,
+      `
+        INSERT INTO users (username, password_hash, role, display_name)
+        VALUES (?, ?, 'customer', ?)
+      `,
+      [username, passwordHash, displayName]
+    );
+
+    const authUser = {
+      id: Number(result.meta.last_row_id),
+      username,
+      role: 'customer',
+      displayName
+    };
+    const token = await createToken(authUser, env.JWT_SECRET);
+
+    return ok(request, env, { token, user: authUser }, 201, '注册成功。');
+  } catch (error) {
+    return fail(request, env, 500, '注册失败，请稍后重试。', 'REGISTER_FAILED', String(error));
+  }
 }
 
 async function handleAdminDashboard(request, env) {

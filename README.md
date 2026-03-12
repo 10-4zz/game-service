@@ -16,6 +16,19 @@
 - 数据库：Cloudflare D1
 - 认证：账号密码 + JWT Bearer Token
 
+登录与注册入口：
+
+- 管理员登录：`/admin/login`
+- 打手登录：`/worker/login`
+- 客户登录：`/customer/login`
+- 客户注册：`/customer/register`
+
+说明：
+
+- `admin` 与 `worker` 账号由管理员在后台创建
+- `customer` 支持前台自助注册
+- 登录接口会校验角色入口，必须从对应角色页面登录
+
 ## 项目结构
 
 ```text
@@ -254,6 +267,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 ### 认证
 
 - `POST /api/login`
+- `POST /api/register`
 - `POST /api/logout`
 - `GET /api/me`
 

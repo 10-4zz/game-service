@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
 import { homePathByRole } from './lib/constants';
+import { CustomerRegisterPage } from './pages/CustomerRegisterPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/admin/DashboardPage';
 import { AdminOrdersPage } from './pages/admin/OrdersPage';
@@ -33,7 +34,7 @@ function HomeRedirect() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/customer/login" replace />;
   }
 
   return <Navigate to={homePathByRole[user.role]} replace />;
@@ -43,7 +44,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<Navigate to="/customer/login" replace />} />
+      <Route path="/register" element={<Navigate to="/customer/register" replace />} />
+      <Route path="/admin/login" element={<LoginPage role="admin" />} />
+      <Route path="/worker/login" element={<LoginPage role="worker" />} />
+      <Route path="/customer/login" element={<LoginPage role="customer" />} />
+      <Route path="/customer/register" element={<CustomerRegisterPage />} />
 
       <Route element={<ProtectedRoute roles={['admin']} />}>
         <Route element={<AppShell />}>

@@ -56,3 +56,33 @@ export const homePathByRole: Record<Role, string> = {
   worker: '/worker/dashboard',
   customer: '/customer/dashboard'
 };
+
+export const loginPathByRole: Record<Role, string> = {
+  admin: '/admin/login',
+  worker: '/worker/login',
+  customer: '/customer/login'
+};
+
+export const roleLabelMap: Record<Role, string> = {
+  admin: '管理员',
+  worker: '打手',
+  customer: '客户'
+};
+
+export function roleFromPath(pathname: string): Role | null {
+  if (pathname.startsWith('/admin')) {
+    return 'admin';
+  }
+  if (pathname.startsWith('/worker')) {
+    return 'worker';
+  }
+  if (pathname.startsWith('/customer')) {
+    return 'customer';
+  }
+  return null;
+}
+
+export function loginPathFromPath(pathname: string) {
+  const role = roleFromPath(pathname);
+  return role ? loginPathByRole[role] : loginPathByRole.customer;
+}

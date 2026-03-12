@@ -1,4 +1,4 @@
-import type { ApiResponse, AuthUser } from '../types';
+import type { ApiResponse, AuthUser, Role } from '../types';
 
 const TOKEN_KEY = 'game-service-platform-token';
 
@@ -76,8 +76,16 @@ export function apiPut<T>(path: string, body?: unknown, token?: string) {
   );
 }
 
-export function loginRequest(username: string, password: string) {
-  return apiPost<{ token: string; user: AuthUser }>('/api/login', { username, password });
+export function loginRequest(username: string, password: string, role: Role) {
+  return apiPost<{ token: string; user: AuthUser }>('/api/login', { username, password, role });
+}
+
+export function registerCustomerRequest(username: string, password: string, displayName: string) {
+  return apiPost<{ token: string; user: AuthUser }>('/api/register', {
+    username,
+    password,
+    display_name: displayName
+  });
 }
 
 export function logoutRequest(token?: string) {

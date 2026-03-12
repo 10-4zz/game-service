@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { homePathByRole } from '../lib/constants';
+import { homePathByRole, loginPathFromPath } from '../lib/constants';
 import type { Role } from '../types';
 import { LoadingView } from './LoadingView';
 
@@ -13,7 +13,7 @@ export function ProtectedRoute({ roles }: { roles?: Role[] }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to={loginPathFromPath(location.pathname)} replace state={{ from: location }} />;
   }
 
   if (roles && !roles.includes(user.role)) {
