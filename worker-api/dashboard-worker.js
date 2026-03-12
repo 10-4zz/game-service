@@ -154,6 +154,12 @@ export default {
         return handleAdminUpdateProduct(request, env, Number(adminProductMatch[1]));
       }
 
+      if (adminProductMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteProduct(request, env, Number(adminProductMatch[1]));
+      }
+
       if (pathname === '/api/admin/recharge-requests' && method === 'GET') {
         const auth = await authenticate(request, env, ['admin']);
         if (auth.response) return auth.response;
@@ -210,6 +216,13 @@ export default {
         return handleAdminCreateSettlement(request, env);
       }
 
+      const adminSettlementMatch = pathname.match(/^\/api\/admin\/settlements\/(\d+)$/);
+      if (adminSettlementMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteSettlement(request, env, Number(adminSettlementMatch[1]));
+      }
+
       if (pathname === '/api/worker/dashboard' && method === 'GET') {
         const auth = await authenticate(request, env, ['worker']);
         if (auth.response) return auth.response;
@@ -263,6 +276,13 @@ export default {
         const auth = await authenticate(request, env, ['customer']);
         if (auth.response) return auth.response;
         return handleCustomerRechargeRequestsList(request, env, auth.user);
+      }
+
+      const customerRechargeMatch = pathname.match(/^\/api\/customer\/recharge-requests\/(\d+)$/);
+      if (customerRechargeMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['customer']);
+        if (auth.response) return auth.response;
+        return handleCustomerDeleteRechargeRequest(request, env, auth.user, Number(customerRechargeMatch[1]));
       }
 
       if (pathname === '/api/customer/orders' && method === 'POST') {
@@ -1125,6 +1145,32 @@ async function handleAdminUpdateProduct(request, env, productId) {
   return ok(request, env, { id: productId }, 200, '服务项目更新成功。');
 }
 
+async function handleAdminDeleteProduct(request, env, productId) {
+  const existing = await getProductById(env.DB, productId);
+  if (!existing) {
+    return fail(request, env, 404, '服务项目不存在。', 'NOT_FOUND');
+  }
+
+  const relatedOrdersRow = await queryFirst(
+    env.DB,
+    `SELECT COUNT(*) AS total FROM orders WHERE product_id = ?`,
+    [productId]
+  );
+
+  if (Number(relatedOrdersRow?.total || 0) > 0) {
+    return fail(
+      request,
+      env,
+      409,
+      '该服务项目已有关联订单，不能直接删除，请改为停用。',
+      'PRODUCT_DELETE_BLOCKED'
+    );
+  }
+
+  await execute(env.DB, `DELETE FROM service_products WHERE id = ?`, [productId]);
+  return ok(request, env, { id: productId, deleted: true }, 200, '服务项目已删除。');
+}
+
 async function handleAdminRechargeRequestsList(request, env) {
   const rows = await queryAll(
     env.DB,
@@ -1598,6 +1644,52 @@ async function handleAdminCreateSettlement(request, env) {
   );
 }
 
+async function handleAdminDeleteSettlement(request, env, settlementId) {
+  const settlement = await queryFirst(
+    env.DB,
+    `
+      SELECT id, worker_id, amount, settlement_time, remark, created_at
+      FROM settlements
+      WHERE id = ?
+    `,
+    [settlementId]
+  );
+
+  if (!settlement) {
+    return fail(request, env, 404, '结算记录不存在。', 'NOT_FOUND');
+  }
+
+  const relatedOrders = await queryAll(
+    env.DB,
+    `
+      SELECT id
+      FROM orders
+      WHERE settlement_id = ?
+    `,
+    [settlementId]
+  );
+
+  await execute(
+    env.DB,
+    `
+      UPDATE orders
+      SET status = 'completed', settlement_id = NULL
+      WHERE settlement_id = ?
+    `,
+    [settlementId]
+  );
+
+  await execute(env.DB, `DELETE FROM settlements WHERE id = ?`, [settlementId]);
+
+  return ok(
+    request,
+    env,
+    { id: settlementId, deleted: true, restored_orders: relatedOrders.length },
+    200,
+    '结算记录已删除，关联订单已恢复为待结算。'
+  );
+}
+
 async function handleWorkerDashboard(request, env, authUser) {
   const incomeRow = await queryFirst(
     env.DB,
@@ -1783,6 +1875,29 @@ async function handleCustomerRechargeRequestsList(request, env, authUser) {
     [authUser.id]
   );
   return ok(request, env, rows.map(normalizeRechargeRow));
+}
+
+async function handleCustomerDeleteRechargeRequest(request, env, authUser, rechargeRequestId) {
+  const rechargeRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, user_id, status
+      FROM recharge_requests
+      WHERE id = ? AND user_id = ?
+    `,
+    [rechargeRequestId, authUser.id]
+  );
+
+  if (!rechargeRequest) {
+    return fail(request, env, 404, '充值申请不存在。', 'NOT_FOUND');
+  }
+
+  if (rechargeRequest.status === 'approved') {
+    return fail(request, env, 409, '已通过的充值申请不能删除。', 'RECHARGE_DELETE_BLOCKED');
+  }
+
+  await execute(env.DB, `DELETE FROM recharge_requests WHERE id = ?`, [rechargeRequestId]);
+  return ok(request, env, { id: rechargeRequestId, deleted: true }, 200, '充值申请已删除。');
 }
 
 async function handleCustomerCreateOrder(request, env, authUser) {

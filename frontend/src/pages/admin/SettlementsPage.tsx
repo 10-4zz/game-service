@@ -4,7 +4,7 @@ import { Card } from '../../components/Card';
 import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { Settlement, WorkerSummary } from '../../types';
 
@@ -14,6 +14,7 @@ export function AdminSettlementsPage() {
   const [loading, setLoading] = useState(true);
   const [workerId, setWorkerId] = useState('');
   const [remark, setRemark] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [searchParams] = useSearchParams();
   const filterWorkerId = searchParams.get('workerId');
 
@@ -46,6 +47,26 @@ export function AdminSettlementsPage() {
     window.alert('结算成功');
     setRemark('');
     await load();
+  }
+
+  async function handleDelete(settlement: Settlement) {
+    const confirmed = window.confirm(
+      `确认删除结算记录 #${settlement.id} 吗？删除后会把关联订单恢复为待结算状态。`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(settlement.id);
+    try {
+      await apiDelete(`/api/admin/settlements/${settlement.id}`);
+      window.alert('结算记录删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const filteredSettlements = useMemo(
@@ -106,7 +127,21 @@ export function AdminSettlementsPage() {
               { key: 'amount', title: '金额', render: (row) => formatCurrency(row.amount) },
               { key: 'orders', title: '关联订单', render: (row) => row.orders_count ?? '-' },
               { key: 'time', title: '结算时间', render: (row) => formatDateTime(row.settlement_time) },
-              { key: 'remark', title: '备注', render: (row) => row.remark || '-' }
+              { key: 'remark', title: '备注', render: (row) => row.remark || '-' },
+              {
+                key: 'actions',
+                title: '操作',
+                render: (row) => (
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2 text-xs"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
+                )
+              }
             ]}
           />
         </>

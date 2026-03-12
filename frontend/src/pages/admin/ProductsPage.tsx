@@ -3,7 +3,7 @@ import { Card } from '../../components/Card';
 import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
-import { apiGet, apiPost, apiPut } from '../../lib/api';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/api';
 import { formatCurrency, formatDateTime, formatPercent } from '../../lib/format';
 import type { Product } from '../../types';
 
@@ -29,6 +29,7 @@ export function AdminProductsPage() {
   const [rows, setRows] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductFormState>(initialForm);
 
   async function load() {
@@ -86,6 +87,27 @@ export function AdminProductsPage() {
 
     resetForm();
     await load();
+  }
+
+  async function handleDelete(product: Product) {
+    const confirmed = window.confirm(`确认删除服务项目「${product.game_name} / ${product.service_name}」吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(product.id);
+    try {
+      await apiDelete(`/api/admin/products/${product.id}`);
+      if (editingId === product.id) {
+        resetForm();
+      }
+      window.alert('服务项目删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -150,9 +172,19 @@ export function AdminProductsPage() {
               key: 'action',
               title: '操作',
               render: (row) => (
-                <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => startEdit(row)}>
-                  编辑
-                </button>
+                <div className="flex gap-2">
+                  <button type="button" className="btn-secondary px-3 py-2 text-xs" onClick={() => startEdit(row)}>
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2 text-xs"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
+                </div>
               )
             }
           ]}

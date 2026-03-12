@@ -147,6 +147,13 @@ cd /22zhuxiangyi/game-service-platform/worker-api
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_orders_is_deleted.sql
 ```
 
+如果你想直接在 D1 控制台执行 SQL，也可以手动运行：
+
+```sql
+ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
+CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
+```
+
 ### 6. 配置本地环境变量
 
 复制 API 环境变量模板：
@@ -217,6 +224,13 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/see
 
 ```bash
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_is_deleted.sql
+```
+
+如果你是在 Cloudflare Dashboard 的 D1 控制台里手动迁移，也可以直接执行：
+
+```sql
+ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
+CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
 ```
 
 ### 部署 Workers API
@@ -296,6 +310,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/admin/products`
 - `POST /api/admin/products`
 - `PUT /api/admin/products/:id`
+- `DELETE /api/admin/products/:id`
 - `GET /api/admin/recharge-requests`
 - `PUT /api/admin/recharge-requests/:id/review`
 - `GET /api/admin/orders`
@@ -305,6 +320,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `DELETE /api/admin/orders/:id`
 - `GET /api/admin/settlements`
 - `POST /api/admin/settlements`
+- `DELETE /api/admin/settlements/:id`
 
 ### 打手
 
@@ -320,6 +336,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/customer/products`
 - `POST /api/customer/recharge-requests`
 - `GET /api/customer/recharge-requests`
+- `DELETE /api/customer/recharge-requests/:id`
 - `POST /api/customer/orders`
 - `GET /api/customer/orders`
 - `GET /api/customer/orders/:id`
