@@ -1,0 +1,19 @@
+{
+  "name": "game-service-platform-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-11",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "JWT_SECRET": "replace-with-a-long-random-secret",
+    "FRONTEND_ORIGIN": "http://localhost:5173"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "game-service-platform-db",
+      "database_id": "replace-with-your-d1-database-id"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+import type { OrderStatus, RechargeStatus, Role } from '../types';
+
+export const orderStatusLabelMap: Record<OrderStatus, string> = {
+  pending_recharge: '待充值',
+  pending_assignment: '待分配',
+  in_progress: '进行中',
+  completed: '已完成',
+  settled: '已结算',
+  cancelled: '已取消'
+};
+
+export const rechargeStatusLabelMap: Record<RechargeStatus, string> = {
+  pending: '待审核',
+  approved: '已通过',
+  rejected: '已拒绝'
+};
+
+export const paymentMethodLabelMap: Record<'alipay' | 'wechat', string> = {
+  alipay: '支付宝',
+  wechat: '微信'
+};
+
+export interface NavItem {
+  to: string;
+  label: string;
+}
+
+export const navItemsByRole: Record<Role, NavItem[]> = {
+  admin: [
+    { to: '/admin/dashboard', label: '仪表盘' },
+    { to: '/admin/recharges', label: '充值申请' },
+    { to: '/admin/recharge-records', label: '充值记录' },
+    { to: '/admin/users', label: '用户管理' },
+    { to: '/admin/workers', label: '打手管理' },
+    { to: '/admin/orders', label: '订单管理' },
+    { to: '/admin/settlements', label: '结算管理' },
+    { to: '/admin/products', label: '服务项目' }
+  ],
+  worker: [
+    { to: '/worker/dashboard', label: '个人首页' },
+    { to: '/worker/orders', label: '陪玩记录' },
+    { to: '/worker/settlements', label: '工资结算' }
+  ],
+  customer: [
+    { to: '/customer/dashboard', label: '用户首页' },
+    { to: '/customer/recharge', label: '提交充值' },
+    { to: '/customer/recharge-records', label: '我的充值' },
+    { to: '/customer/products', label: '服务项目' },
+    { to: '/customer/orders/new', label: '下单中心' },
+    { to: '/customer/orders', label: '我的订单' }
+  ]
+};
+
+export const homePathByRole: Record<Role, string> = {
+  admin: '/admin/dashboard',
+  worker: '/worker/dashboard',
+  customer: '/customer/dashboard'
+};

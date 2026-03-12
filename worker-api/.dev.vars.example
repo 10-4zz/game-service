@@ -1,0 +1,2 @@
+JWT_SECRET=dev-secret-change-me
+FRONTEND_ORIGIN=http://localhost:5173

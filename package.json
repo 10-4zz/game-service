@@ -1,0 +1,12 @@
+{
+  "name": "game-service-platform",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:api": "npm --prefix worker-api run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "typecheck:frontend": "npm --prefix frontend run typecheck",
+    "typecheck:api": "npm --prefix worker-api run typecheck"
+  }
+}
