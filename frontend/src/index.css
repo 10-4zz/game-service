@@ -6,6 +6,7 @@
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: #0f172a;
   background: #f8fafc;
+  color-scheme: light;
 }
 
 * {
@@ -16,6 +17,13 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(194, 65, 12, 0.09), transparent 20%),
+    radial-gradient(circle at 85% 10%, rgba(14, 165, 233, 0.08), transparent 18%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
@@ -30,9 +38,14 @@ textarea {
   font: inherit;
 }
 
+::selection {
+  background: rgba(194, 65, 12, 0.18);
+  color: #0f172a;
+}
+
 @layer components {
   .field {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100;
+    @apply w-full rounded-xl border border-slate-300 bg-white/95 px-3 py-2.5 text-sm text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-100;
   }
 
   .label {
@@ -40,14 +53,14 @@ textarea {
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-orange-700;
+    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(194,65,12,0.22)] transition hover:-translate-y-0.5 hover:from-orange-700 hover:to-amber-600;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100;
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-100;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700;
+    @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-rose-600 to-red-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(225,29,72,0.18)] transition hover:-translate-y-0.5 hover:from-rose-700 hover:to-red-600;
   }
 }

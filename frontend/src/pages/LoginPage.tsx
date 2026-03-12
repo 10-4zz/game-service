@@ -26,11 +26,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(194,65,12,0.18),_transparent_32%),linear-gradient(180deg,_#0f172a_0%,_#1e293b_48%,_#f8fafc_48%,_#f8fafc_100%)] px-4 py-16">
+    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(194,65,12,0.24),_transparent_24%),radial-gradient(circle_at_85%_18%,_rgba(14,165,233,0.16),_transparent_20%),linear-gradient(180deg,_#020617_0%,_#0f172a_42%,_#f8fafc_42%,_#f8fafc_100%)] px-4 py-16">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="self-center text-white">
-          <p className="text-sm uppercase tracking-[0.28em] text-orange-300">Game Service Platform</p>
-          <h1 className="mt-4 text-5xl font-semibold tracking-tight">
+          <span className="inline-flex rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-300">
+            Control Room Access
+          </span>
+          <p className="mt-5 text-sm uppercase tracking-[0.28em] text-orange-300">Game Service Platform</p>
+          <h1 className="mt-4 text-5xl font-semibold tracking-tight lg:text-6xl">
             游戏陪玩 / 代练 / 打手管理平台
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-slate-200">
@@ -38,26 +41,27 @@ export function LoginPage() {
             订单分配、收入统计和工资结算。
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-4 backdrop-blur">
+            <div className="rounded-[24px] border border-white/15 bg-slate-900/45 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)] backdrop-blur">
               <p className="text-sm text-slate-200">管理员</p>
               <p className="mt-2 text-lg font-semibold">订单、充值、结算总控</p>
             </div>
-            <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-4 backdrop-blur">
+            <div className="rounded-[24px] border border-white/15 bg-slate-900/45 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)] backdrop-blur">
               <p className="text-sm text-slate-200">打手</p>
               <p className="mt-2 text-lg font-semibold">只看自己的订单与工资</p>
             </div>
-            <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-4 backdrop-blur">
+            <div className="rounded-[24px] border border-white/15 bg-slate-900/45 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)] backdrop-blur">
               <p className="text-sm text-slate-200">客户</p>
               <p className="mt-2 text-lg font-semibold">充值、下单、查询状态</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-panel">
+        <div className="relative overflow-hidden rounded-[34px] border border-slate-200/90 bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.96)_100%)] p-8 shadow-panel">
+          <div className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full bg-orange-200/70 blur-3xl" />
           <h2 className="text-2xl font-semibold text-ink">账号登录</h2>
           <p className="mt-2 text-sm text-slate-700">输入账号密码，系统会自动跳转到对应角色后台。</p>
 
-          <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          <form className="relative mt-8 space-y-5" onSubmit={handleSubmit}>
             <div>
               <label className="label" htmlFor="username">
                 用户名
@@ -96,11 +100,22 @@ export function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-700">
-            <p className="font-medium text-slate-800">种子账号</p>
-            <p className="mt-2">管理员：`admin / admin123456`</p>
-            <p>打手：`worker_ares / worker123456`</p>
-            <p>客户：`customer_kevin / customer123456`</p>
+          <div className="mt-8 rounded-[24px] border border-slate-300 bg-[linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] p-4 text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">种子账号</p>
+            <div className="mt-3 space-y-2">
+              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                <span className="font-semibold text-slate-900">管理员：</span>
+                <span className="font-mono text-[13px]">admin / admin123456</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                <span className="font-semibold text-slate-900">打手：</span>
+                <span className="font-mono text-[13px]">worker_ares / worker123456</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+                <span className="font-semibold text-slate-900">客户：</span>
+                <span className="font-mono text-[13px]">customer_kevin / customer123456</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

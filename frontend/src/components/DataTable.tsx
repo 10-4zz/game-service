@@ -36,15 +36,15 @@ export function DataTable<T>({
   const currentItems = data.slice(start, start + pageSize);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-[26px] border border-slate-200/90 bg-white shadow-panel">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-100">
+          <thead className="bg-[linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-left font-semibold text-slate-700 ${column.className ?? ''}`}
+                  className={`px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 ${column.className ?? ''}`}
                 >
                   {column.title}
                 </th>
@@ -63,7 +63,7 @@ export function DataTable<T>({
               </tr>
             ) : (
               currentItems.map((row) => (
-                <tr key={rowKey(row)} className="hover:bg-slate-50/80">
+                <tr key={rowKey(row)} className="bg-white transition hover:bg-orange-50/40">
                   {columns.map((column) => (
                     <td key={column.key} className="px-4 py-3 align-top text-slate-800">
                       {column.render(row)}
@@ -76,7 +76,7 @@ export function DataTable<T>({
         </table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+      <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 py-3 text-xs text-slate-600">
         <span>
           共 {data.length} 条，第 {page} / {maxPage} 页
         </span>
