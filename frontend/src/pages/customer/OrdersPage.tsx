@@ -24,7 +24,7 @@ export function CustomerOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="我的订单" description="查看订单状态、已分配打手和价格构成。" />
+      <PageHeader title="我的订单" description="查看订单状态、已分配打手和应付金额。" />
       {loading ? (
         <LoadingView />
       ) : (

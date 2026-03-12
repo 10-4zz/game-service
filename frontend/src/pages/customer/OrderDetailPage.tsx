@@ -22,5 +22,5 @@ export function CustomerOrderDetailPage() {
     return <LoadingView />;
   }
 
-  return <OrderDetailPanel order={order} backTo="/customer/orders" />;
+  return <OrderDetailPanel order={order} backTo="/customer/orders" viewerRole="customer" />;
 }

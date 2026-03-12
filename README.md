@@ -276,8 +276,10 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/admin/dashboard`
 - `GET /api/admin/users`
 - `POST /api/admin/users`
+- `DELETE /api/admin/users/:id`
 - `GET /api/admin/workers`
 - `POST /api/admin/workers`
+- `DELETE /api/admin/workers/:id`
 - `GET /api/admin/products`
 - `POST /api/admin/products`
 - `PUT /api/admin/products/:id`

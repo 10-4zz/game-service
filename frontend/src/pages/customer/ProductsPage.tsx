@@ -4,7 +4,7 @@ import { Card } from '../../components/Card';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
 import { apiGet } from '../../lib/api';
-import { formatCurrency, formatPercent } from '../../lib/format';
+import { formatCurrency } from '../../lib/format';
 import type { Product } from '../../types';
 
 export function CustomerProductsPage() {
@@ -37,7 +37,7 @@ export function CustomerProductsPage() {
           >
             <div className="space-y-2 text-sm text-slate-700">
               <p>单价：<span className="font-medium text-ink">{formatCurrency(product.unit_price)}</span></p>
-              <p>平台抽成比例：<span className="font-medium text-ink">{formatPercent(product.commission_rate)}</span></p>
+              <p>计费方式：<span className="font-medium text-ink">按小时计费</span></p>
               <p>说明：{product.description || '暂无说明'}</p>
             </div>
           </Card>

@@ -76,6 +76,16 @@ export function apiPut<T>(path: string, body?: unknown, token?: string) {
   );
 }
 
+export function apiDelete<T>(path: string, token?: string) {
+  return request<T>(
+    path,
+    {
+      method: 'DELETE'
+    },
+    token
+  );
+}
+
 export function loginRequest(username: string, password: string, role: Role) {
   return apiPost<{ token: string; user: AuthUser }>('/api/login', { username, password, role });
 }

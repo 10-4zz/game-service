@@ -30,7 +30,6 @@ export function CustomerCreateOrderPage() {
 
   const duration = Number(durationHours) || 0;
   const total = selectedProduct ? Number((selectedProduct.unit_price * duration).toFixed(2)) : 0;
-  const commission = selectedProduct ? Number((total * selectedProduct.commission_rate).toFixed(2)) : 0;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,7 +72,7 @@ export function CustomerCreateOrderPage() {
             <input className="field" value={remark} onChange={(event) => setRemark(event.target.value)} placeholder="可填写段位、目标或语音需求" />
           </div>
 
-          <div className="md:col-span-2 grid gap-4 rounded-2xl border border-slate-300 bg-slate-100 p-4 md:grid-cols-3">
+          <div className="md:col-span-2 grid gap-4 rounded-2xl border border-slate-300 bg-slate-100 p-4 md:grid-cols-2">
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-600">单价</p>
               <p className="mt-2 text-lg font-semibold text-ink">{selectedProduct ? formatCurrency(selectedProduct.unit_price) : '-'}</p>
@@ -81,10 +80,6 @@ export function CustomerCreateOrderPage() {
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-600">总额</p>
               <p className="mt-2 text-lg font-semibold text-ink">{formatCurrency(total)}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-600">预计平台抽成</p>
-              <p className="mt-2 text-lg font-semibold text-ink">{formatCurrency(commission)}</p>
             </div>
           </div>
 

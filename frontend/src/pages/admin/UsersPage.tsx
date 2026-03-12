@@ -4,7 +4,7 @@ import { Card } from '../../components/Card';
 import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { UserSummary } from '../../types';
 
@@ -18,6 +18,7 @@ export function AdminUsersPage() {
   const [rows, setRows] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(initialForm);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [searchParams] = useSearchParams();
   const customerIdFilter = searchParams.get('customerId');
 
@@ -43,6 +44,24 @@ export function AdminUsersPage() {
     window.alert('用户创建成功');
     setForm(initialForm);
     await load();
+  }
+
+  async function handleDelete(row: UserSummary) {
+    const confirmed = window.confirm(`确认删除用户「${row.display_name}」吗？该操作会停用账号并从列表中隐藏。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(row.id);
+    try {
+      await apiDelete(`/api/admin/users/${row.id}`);
+      window.alert('用户删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const filtered = customerIdFilter
@@ -96,7 +115,7 @@ export function AdminUsersPage() {
             { key: 'created', title: '创建时间', render: (row) => formatDateTime(row.created_at) },
             {
               key: 'links',
-              title: '查看',
+              title: '操作',
               render: (row) => (
                 <div className="flex gap-2 text-xs">
                   <Link className="btn-secondary px-3 py-2" to={`/admin/orders?customerId=${row.id}`}>
@@ -105,6 +124,14 @@ export function AdminUsersPage() {
                   <Link className="btn-secondary px-3 py-2" to={`/admin/recharges?customerId=${row.id}`}>
                     充值
                   </Link>
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
                 </div>
               )
             }

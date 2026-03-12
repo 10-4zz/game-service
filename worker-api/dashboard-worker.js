@@ -108,6 +108,13 @@ export default {
         return handleAdminCreateUser(request, env);
       }
 
+      const adminUserMatch = pathname.match(/^\/api\/admin\/users\/(\d+)$/);
+      if (adminUserMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteUser(request, env, Number(adminUserMatch[1]));
+      }
+
       if (pathname === '/api/admin/workers' && method === 'GET') {
         const auth = await authenticate(request, env, ['admin']);
         if (auth.response) return auth.response;
@@ -118,6 +125,13 @@ export default {
         const auth = await authenticate(request, env, ['admin']);
         if (auth.response) return auth.response;
         return handleAdminCreateWorker(request, env);
+      }
+
+      const adminWorkerMatch = pathname.match(/^\/api\/admin\/workers\/(\d+)$/);
+      if (adminWorkerMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteWorker(request, env, Number(adminWorkerMatch[1]));
       }
 
       if (pathname === '/api/admin/products' && method === 'GET') {
@@ -469,11 +483,18 @@ async function authenticate(request, env, roles) {
     };
   }
 
+  const dbUser = await getUserById(env.DB, Number(payload.id));
+  if (!dbUser || !dbUser.is_active) {
+    return {
+      response: fail(request, env, 401, '账号已被停用或删除，请重新登录。', 'ACCOUNT_DISABLED')
+    };
+  }
+
   const user = {
-    id: Number(payload.id),
-    username: payload.username,
-    role: payload.role,
-    displayName: payload.displayName
+    id: Number(dbUser.id),
+    username: dbUser.username,
+    role: dbUser.role,
+    displayName: dbUser.display_name
   };
 
   if (roles && !roles.includes(user.role)) {
@@ -758,6 +779,7 @@ async function handleAdminUsersList(request, env) {
         ), 0) AS order_count
       FROM users u
       WHERE u.role = 'customer'
+        AND u.is_active = 1
       ORDER BY u.created_at DESC
     `
   );
@@ -799,6 +821,45 @@ async function handleAdminCreateUser(request, env) {
   }
 }
 
+async function handleAdminDeleteUser(request, env, userId) {
+  const user = await getUserById(env.DB, userId);
+  if (!user || user.role !== 'customer' || !user.is_active) {
+    return fail(request, env, 404, '用户不存在。', 'USER_NOT_FOUND');
+  }
+
+  const balance = await getWalletBalance(env.DB, userId);
+  if (balance !== 0) {
+    return fail(request, env, 409, '该用户仍有余额，请先处理余额后再删除。', 'USER_DELETE_BLOCKED');
+  }
+
+  const pendingRechargeRow = await queryFirst(
+    env.DB,
+    `SELECT COUNT(*) AS total FROM recharge_requests WHERE user_id = ? AND status = 'pending'`,
+    [userId]
+  );
+  if (Number(pendingRechargeRow?.total || 0) > 0) {
+    return fail(request, env, 409, '该用户仍有待审核充值申请，暂不能删除。', 'USER_DELETE_BLOCKED');
+  }
+
+  const activeOrderRow = await queryFirst(
+    env.DB,
+    `
+      SELECT COUNT(*) AS total
+      FROM orders
+      WHERE customer_id = ?
+        AND status IN ('pending_recharge', 'pending_assignment', 'in_progress')
+    `,
+    [userId]
+  );
+  if (Number(activeOrderRow?.total || 0) > 0) {
+    return fail(request, env, 409, '该用户仍有进行中的订单，暂不能删除。', 'USER_DELETE_BLOCKED');
+  }
+
+  const archivedUsername = `deleted_customer_${userId}_${Date.now()}`;
+  await execute(env.DB, `UPDATE users SET is_active = 0, username = ? WHERE id = ?`, [archivedUsername, userId]);
+  return ok(request, env, { id: userId, deleted: true }, 200, '用户已删除。');
+}
+
 async function handleAdminWorkersList(request, env) {
   const rows = await queryAll(
     env.DB,
@@ -821,6 +882,7 @@ async function handleAdminWorkersList(request, env) {
         ), 0) AS settled_amount
       FROM users u
       WHERE u.role = 'worker'
+        AND u.is_active = 1
       ORDER BY u.created_at DESC
     `
   );
@@ -865,6 +927,31 @@ async function handleAdminCreateWorker(request, env) {
   } catch (error) {
     return fail(request, env, 409, '用户名已存在或数据无效。', 'WORKER_CREATE_FAILED', String(error));
   }
+}
+
+async function handleAdminDeleteWorker(request, env, workerId) {
+  const worker = await getUserById(env.DB, workerId);
+  if (!worker || worker.role !== 'worker' || !worker.is_active) {
+    return fail(request, env, 404, '打手不存在。', 'WORKER_NOT_FOUND');
+  }
+
+  const activeOrderRow = await queryFirst(
+    env.DB,
+    `
+      SELECT COUNT(*) AS total
+      FROM orders
+      WHERE worker_id = ?
+        AND status NOT IN ('settled', 'cancelled')
+    `,
+    [workerId]
+  );
+  if (Number(activeOrderRow?.total || 0) > 0) {
+    return fail(request, env, 409, '该打手仍有关联中的订单或待结算订单，暂不能删除。', 'WORKER_DELETE_BLOCKED');
+  }
+
+  const archivedUsername = `deleted_worker_${workerId}_${Date.now()}`;
+  await execute(env.DB, `UPDATE users SET is_active = 0, username = ? WHERE id = ?`, [archivedUsername, workerId]);
+  return ok(request, env, { id: workerId, deleted: true }, 200, '打手已删除。');
 }
 
 async function handleAdminProductsList(request, env) {

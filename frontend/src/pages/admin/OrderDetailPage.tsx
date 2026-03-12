@@ -22,5 +22,5 @@ export function AdminOrderDetailPage() {
     return <LoadingView />;
   }
 
-  return <OrderDetailPanel order={order} backTo="/admin/orders" />;
+  return <OrderDetailPanel order={order} backTo="/admin/orders" viewerRole="admin" />;
 }

@@ -4,7 +4,7 @@ import { Card } from '../../components/Card';
 import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { WorkerSummary } from '../../types';
 
@@ -18,6 +18,7 @@ export function AdminWorkersPage() {
   const [rows, setRows] = useState<WorkerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(initialForm);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [searchParams] = useSearchParams();
   const workerIdFilter = searchParams.get('workerId');
 
@@ -43,6 +44,24 @@ export function AdminWorkersPage() {
     window.alert('打手创建成功');
     setForm(initialForm);
     await load();
+  }
+
+  async function handleDelete(row: WorkerSummary) {
+    const confirmed = window.confirm(`确认删除打手「${row.display_name}」吗？该操作会停用账号并从列表中隐藏。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(row.id);
+    try {
+      await apiDelete(`/api/admin/workers/${row.id}`);
+      window.alert('打手删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const filtered = workerIdFilter ? rows.filter((item) => String(item.id) === workerIdFilter) : rows;
@@ -95,7 +114,7 @@ export function AdminWorkersPage() {
             { key: 'created', title: '创建时间', render: (row) => formatDateTime(row.created_at) },
             {
               key: 'links',
-              title: '查看',
+              title: '操作',
               render: (row) => (
                 <div className="flex gap-2 text-xs">
                   <Link className="btn-secondary px-3 py-2" to={`/admin/orders?workerId=${row.id}`}>
@@ -104,6 +123,14 @@ export function AdminWorkersPage() {
                   <Link className="btn-secondary px-3 py-2" to={`/admin/settlements?workerId=${row.id}`}>
                     结算
                   </Link>
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
                 </div>
               )
             }

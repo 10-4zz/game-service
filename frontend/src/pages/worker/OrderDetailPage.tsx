@@ -22,5 +22,5 @@ export function WorkerOrderDetailPage() {
     return <LoadingView />;
   }
 
-  return <OrderDetailPanel order={order} backTo="/worker/orders" />;
+  return <OrderDetailPanel order={order} backTo="/worker/orders" viewerRole="worker" />;
 }
