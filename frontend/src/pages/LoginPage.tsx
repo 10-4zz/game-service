@@ -33,29 +33,29 @@ export function LoginPage() {
           <h1 className="mt-4 text-5xl font-semibold tracking-tight">
             游戏陪玩 / 代练 / 打手管理平台
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-7 text-slate-300">
+          <p className="mt-6 max-w-xl text-base leading-7 text-slate-200">
             一个面向老板、打手与客户的 Cloudflare 全栈 MVP，覆盖充值审核、余额下单、
             订单分配、收入统计和工资结算。
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-              <p className="text-sm text-slate-300">管理员</p>
+            <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-4 backdrop-blur">
+              <p className="text-sm text-slate-200">管理员</p>
               <p className="mt-2 text-lg font-semibold">订单、充值、结算总控</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-              <p className="text-sm text-slate-300">打手</p>
+            <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-4 backdrop-blur">
+              <p className="text-sm text-slate-200">打手</p>
               <p className="mt-2 text-lg font-semibold">只看自己的订单与工资</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-              <p className="text-sm text-slate-300">客户</p>
+            <div className="rounded-2xl border border-white/15 bg-slate-900/45 p-4 backdrop-blur">
+              <p className="text-sm text-slate-200">客户</p>
               <p className="mt-2 text-lg font-semibold">充值、下单、查询状态</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-[32px] border border-white/70 bg-white/90 p-8 shadow-panel backdrop-blur">
+        <div className="rounded-[32px] border border-slate-200 bg-white p-8 shadow-panel">
           <h2 className="text-2xl font-semibold text-ink">账号登录</h2>
-          <p className="mt-2 text-sm text-steel">输入账号密码，系统会自动跳转到对应角色后台。</p>
+          <p className="mt-2 text-sm text-slate-700">输入账号密码，系统会自动跳转到对应角色后台。</p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
             <div>
@@ -96,7 +96,7 @@ export function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="mt-8 rounded-2xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-700">
             <p className="font-medium text-slate-800">种子账号</p>
             <p className="mt-2">管理员：`admin / admin123456`</p>
             <p>打手：`worker_ares / worker123456`</p>

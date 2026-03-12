@@ -39,12 +39,12 @@ export function DataTable<T>({
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-slate-100">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-left font-medium text-slate-600 ${column.className ?? ''}`}
+                  className={`px-4 py-3 text-left font-semibold text-slate-700 ${column.className ?? ''}`}
                 >
                   {column.title}
                 </th>
@@ -56,16 +56,16 @@ export function DataTable<T>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-8 text-center text-sm text-slate-500"
+                  className="px-4 py-8 text-center text-sm text-slate-600"
                 >
                   {emptyText}
                 </td>
               </tr>
             ) : (
               currentItems.map((row) => (
-                <tr key={rowKey(row)} className="hover:bg-slate-50">
+                <tr key={rowKey(row)} className="hover:bg-slate-50/80">
                   {columns.map((column) => (
-                    <td key={column.key} className="px-4 py-3 align-top text-slate-700">
+                    <td key={column.key} className="px-4 py-3 align-top text-slate-800">
                       {column.render(row)}
                     </td>
                   ))}
@@ -76,7 +76,7 @@ export function DataTable<T>({
         </table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
+      <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
         <span>
           共 {data.length} 条，第 {page} / {maxPage} 页
         </span>
@@ -84,7 +84,7 @@ export function DataTable<T>({
           <button
             type="button"
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={page === 1}
           >
             上一页
@@ -92,7 +92,7 @@ export function DataTable<T>({
           <button
             type="button"
             onClick={() => setPage((prev) => Math.min(maxPage, prev + 1))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={page === maxPage}
           >
             下一页

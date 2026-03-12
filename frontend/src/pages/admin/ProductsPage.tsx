@@ -138,7 +138,7 @@ export function AdminProductsPage() {
               render: (row) => (
                 <div>
                   <div className="font-medium text-ink">{row.game_name}</div>
-                  <div className="text-xs text-slate-500">{row.service_name}</div>
+                  <div className="text-xs text-slate-600">{row.service_name}</div>
                 </div>
               )
             },

@@ -86,7 +86,7 @@ export function AdminUsersPage() {
               render: (row) => (
                 <div>
                   <div className="font-medium text-ink">{row.display_name}</div>
-                  <div className="text-xs text-slate-500">{row.username}</div>
+                  <div className="text-xs text-slate-600">{row.username}</div>
                 </div>
               )
             },

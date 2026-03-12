@@ -35,7 +35,7 @@ export function CustomerProductsPage() {
             title={`${product.game_name} / ${product.service_name}`}
             extra={<Link to={`/customer/orders/new?productId=${product.id}`} className="btn-primary">去下单</Link>}
           >
-            <div className="space-y-2 text-sm text-slate-600">
+            <div className="space-y-2 text-sm text-slate-700">
               <p>单价：<span className="font-medium text-ink">{formatCurrency(product.unit_price)}</span></p>
               <p>平台抽成比例：<span className="font-medium text-ink">{formatPercent(product.commission_rate)}</span></p>
               <p>说明：{product.description || '暂无说明'}</p>

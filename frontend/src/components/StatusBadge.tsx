@@ -15,7 +15,7 @@ const colorMap: Record<string, string> = {
   in_progress: 'bg-sky-50 text-sky-700 ring-sky-200',
   completed: 'bg-lime-50 text-lime-700 ring-lime-200',
   settled: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  cancelled: 'bg-slate-100 text-slate-600 ring-slate-200'
+  cancelled: 'bg-slate-100 text-slate-700 ring-slate-300'
 };
 
 export function StatusBadge({ status, type }: StatusBadgeProps) {

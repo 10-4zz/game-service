@@ -216,7 +216,7 @@ export function AdminOrdersPage() {
               render: (row) => (
                 <div>
                   <div className="font-medium text-ink">{row.order_no}</div>
-                  <div className="text-xs text-slate-500">{row.game_name} / {row.service_name}</div>
+                  <div className="text-xs text-slate-600">{row.game_name} / {row.service_name}</div>
                 </div>
               )
             },

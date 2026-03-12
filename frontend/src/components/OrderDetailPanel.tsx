@@ -42,14 +42,14 @@ export function OrderDetailPanel({
         title="订单状态"
         extra={<StatusBadge status={order.status} type="order" />}
       >
-        <p className="text-sm text-slate-600">{order.remark || '暂无备注。'}</p>
+        <p className="text-sm text-slate-700">{order.remark || '暂无备注。'}</p>
       </Card>
 
       <Card title="基础信息">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+            <div key={label} className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-slate-600">{label}</p>
               <p className="mt-2 text-sm font-medium text-ink">{value}</p>
             </div>
           ))}

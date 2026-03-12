@@ -91,7 +91,7 @@ export function AdminRechargeRequestsPage() {
               render: (row) => (
                 <div>
                   <div className="font-medium text-ink">{row.user_name}</div>
-                  <div className="text-xs text-slate-500">ID #{row.user_id}</div>
+                  <div className="text-xs text-slate-600">ID #{row.user_id}</div>
                 </div>
               )
             },
@@ -134,7 +134,7 @@ export function AdminRechargeRequestsPage() {
                     </button>
                   </div>
                 ) : (
-                  <span className="text-xs text-slate-500">{row.reviewer_name || '-'}</span>
+                  <span className="text-xs text-slate-600">{row.reviewer_name || '-'}</span>
                 )
             }
           ]}
