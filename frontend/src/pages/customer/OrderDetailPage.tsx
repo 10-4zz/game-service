@@ -27,15 +27,15 @@ export function CustomerOrderDetailPage() {
 
   const currentOrder = order;
 
-  async function handleDelete() {
-    const confirmed = window.confirm(`确认删除订单「${currentOrder.order_no}」吗？仅已结算或已取消订单允许删除。`);
+  async function handleDelete(targetOrder: Order) {
+    const confirmed = window.confirm(`确认删除订单「${targetOrder.order_no}」吗？仅已结算或已取消订单允许删除。`);
     if (!confirmed) {
       return;
     }
 
     setDeleting(true);
     try {
-      await apiDelete(`/api/customer/orders/${currentOrder.id}`);
+      await apiDelete(`/api/customer/orders/${targetOrder.id}`);
       window.alert('订单删除成功');
       navigate('/customer/orders', { replace: true });
     } catch (error) {
@@ -54,7 +54,7 @@ export function CustomerOrderDetailPage() {
         <button
           type="button"
           className="btn-danger"
-          onClick={() => void handleDelete()}
+          onClick={() => void handleDelete(currentOrder)}
           disabled={deleting || !canDeleteOrder(currentOrder.status)}
           title={canDeleteOrder(currentOrder.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
         >
