@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS orders (
       'cancelled'
     )
   ),
+  is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1)),
   remark TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (customer_id) REFERENCES users(id),
@@ -102,4 +103,5 @@ CREATE INDEX IF NOT EXISTS idx_wallet_transactions_related_order ON wallet_trans
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_worker_id ON orders(worker_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_settlements_worker_id ON settlements(worker_id);

@@ -15,6 +15,7 @@ const ORDER_STATUSES = [
   'settled',
   'cancelled'
 ];
+const DELETABLE_ORDER_STATUSES = ['settled', 'cancelled'];
 const USER_ROLES = ['admin', 'worker', 'customer'];
 const MUTABLE_ORDER_STATUSES = ['pending_assignment', 'in_progress', 'completed', 'cancelled'];
 const RECHARGE_STATUSES = ['pending', 'approved', 'rejected'];
@@ -191,6 +192,12 @@ export default {
         return handleAdminUpdateOrder(request, env, Number(adminOrderMatch[1]));
       }
 
+      if (adminOrderMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteOrder(request, env, Number(adminOrderMatch[1]));
+      }
+
       if (pathname === '/api/admin/settlements' && method === 'GET') {
         const auth = await authenticate(request, env, ['admin']);
         if (auth.response) return auth.response;
@@ -220,6 +227,12 @@ export default {
         const auth = await authenticate(request, env, ['worker']);
         if (auth.response) return auth.response;
         return handleWorkerOrderDetail(request, env, auth.user, Number(workerOrderMatch[1]));
+      }
+
+      if (workerOrderMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['worker']);
+        if (auth.response) return auth.response;
+        return handleWorkerDeleteOrder(request, env, auth.user, Number(workerOrderMatch[1]));
       }
 
       if (pathname === '/api/worker/settlements' && method === 'GET') {
@@ -269,6 +282,12 @@ export default {
         const auth = await authenticate(request, env, ['customer']);
         if (auth.response) return auth.response;
         return handleCustomerOrderDetail(request, env, auth.user, Number(customerOrderMatch[1]));
+      }
+
+      if (customerOrderMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['customer']);
+        if (auth.response) return auth.response;
+        return handleCustomerDeleteOrder(request, env, auth.user, Number(customerOrderMatch[1]));
       }
 
       return fail(request, env, 404, '接口不存在。', 'NOT_FOUND');
@@ -574,15 +593,82 @@ async function getWalletBalance(db, userId) {
 }
 
 async function getOrderDetailById(db, orderId) {
-  return queryFirst(db, `${ORDER_SELECT_SQL} WHERE o.id = ?`, [orderId]);
+  return queryFirst(db, `${ORDER_SELECT_SQL} WHERE o.id = ? AND o.is_deleted = 0`, [orderId]);
 }
 
 async function getOrderDetailForWorker(db, orderId, workerId) {
-  return queryFirst(db, `${ORDER_SELECT_SQL} WHERE o.id = ? AND o.worker_id = ?`, [orderId, workerId]);
+  return queryFirst(
+    db,
+    `${ORDER_SELECT_SQL} WHERE o.id = ? AND o.worker_id = ? AND o.is_deleted = 0`,
+    [orderId, workerId]
+  );
 }
 
 async function getOrderDetailForCustomer(db, orderId, customerId) {
-  return queryFirst(db, `${ORDER_SELECT_SQL} WHERE o.id = ? AND o.customer_id = ?`, [orderId, customerId]);
+  return queryFirst(
+    db,
+    `${ORDER_SELECT_SQL} WHERE o.id = ? AND o.customer_id = ? AND o.is_deleted = 0`,
+    [orderId, customerId]
+  );
+}
+
+async function getOrderRecordById(db, orderId) {
+  return queryFirst(
+    db,
+    `
+      SELECT id, order_no, customer_id, worker_id, status, settlement_id, is_deleted
+      FROM orders
+      WHERE id = ?
+    `,
+    [orderId]
+  );
+}
+
+async function getOrderRecordForWorker(db, orderId, workerId) {
+  return queryFirst(
+    db,
+    `
+      SELECT id, order_no, customer_id, worker_id, status, settlement_id, is_deleted
+      FROM orders
+      WHERE id = ? AND worker_id = ?
+    `,
+    [orderId, workerId]
+  );
+}
+
+async function getOrderRecordForCustomer(db, orderId, customerId) {
+  return queryFirst(
+    db,
+    `
+      SELECT id, order_no, customer_id, worker_id, status, settlement_id, is_deleted
+      FROM orders
+      WHERE id = ? AND customer_id = ?
+    `,
+    [orderId, customerId]
+  );
+}
+
+function canDeleteOrderStatus(status) {
+  return DELETABLE_ORDER_STATUSES.includes(status);
+}
+
+async function softDeleteOrder(request, env, order) {
+  if (!order || Number(order.is_deleted) === 1) {
+    return fail(request, env, 404, '订单不存在。', 'NOT_FOUND');
+  }
+
+  if (!canDeleteOrderStatus(order.status)) {
+    return fail(
+      request,
+      env,
+      409,
+      '只有已结算或已取消的订单记录才允许删除。',
+      'ORDER_DELETE_BLOCKED'
+    );
+  }
+
+  await execute(env.DB, `UPDATE orders SET is_deleted = 1 WHERE id = ?`, [order.id]);
+  return ok(request, env, { id: order.id, deleted: true }, 200, '订单已删除。');
 }
 
 function normalizeOrderRow(row) {
@@ -730,7 +816,7 @@ async function handleAdminDashboard(request, env) {
   );
   const userCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM users WHERE role = 'customer'`);
   const workerCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM users WHERE role = 'worker'`);
-  const orderCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM orders`);
+  const orderCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM orders WHERE is_deleted = 0`);
   const settledAmountRow = await queryFirst(env.DB, `SELECT COALESCE(SUM(amount), 0) AS total FROM settlements`);
   const unsettledAmountRow = await queryFirst(
     env.DB,
@@ -738,6 +824,7 @@ async function handleAdminDashboard(request, env) {
       SELECT COALESCE(SUM(worker_income), 0) AS total
       FROM orders
       WHERE worker_id IS NOT NULL
+        AND is_deleted = 0
         AND status NOT IN ('settled', 'cancelled')
     `
   );
@@ -775,7 +862,7 @@ async function handleAdminUsersList(request, env) {
         COALESCE((
           SELECT COUNT(*)
           FROM orders o
-          WHERE o.customer_id = u.id
+          WHERE o.customer_id = u.id AND o.is_deleted = 0
         ), 0) AS order_count
       FROM users u
       WHERE u.role = 'customer'
@@ -869,7 +956,7 @@ async function handleAdminWorkersList(request, env) {
         u.username,
         u.display_name,
         u.created_at,
-        COALESCE((SELECT COUNT(*) FROM orders o WHERE o.worker_id = u.id), 0) AS order_count,
+        COALESCE((SELECT COUNT(*) FROM orders o WHERE o.worker_id = u.id AND o.is_deleted = 0), 0) AS order_count,
         COALESCE((
           SELECT SUM(o.worker_income)
           FROM orders o
@@ -1123,7 +1210,7 @@ async function handleAdminReviewRecharge(request, env, authUser, rechargeRequest
 }
 
 async function handleAdminOrdersList(request, env) {
-  const rows = await queryAll(env.DB, `${ORDER_SELECT_SQL} ORDER BY o.created_at DESC`);
+  const rows = await queryAll(env.DB, `${ORDER_SELECT_SQL} WHERE o.is_deleted = 0 ORDER BY o.created_at DESC`);
   return ok(request, env, rows.map(normalizeOrderRow));
 }
 
@@ -1133,6 +1220,11 @@ async function handleAdminOrderDetail(request, env, orderId) {
     return fail(request, env, 404, '订单不存在。', 'NOT_FOUND');
   }
   return ok(request, env, normalizeOrderRow(order));
+}
+
+async function handleAdminDeleteOrder(request, env, orderId) {
+  const order = await getOrderRecordById(env.DB, orderId);
+  return softDeleteOrder(request, env, order);
 }
 
 async function handleAdminCreateOrder(request, env) {
@@ -1512,7 +1604,7 @@ async function handleWorkerDashboard(request, env, authUser) {
     `
       SELECT COALESCE(SUM(worker_income), 0) AS total
       FROM orders
-      WHERE worker_id = ? AND status != 'cancelled'
+      WHERE worker_id = ? AND is_deleted = 0 AND status != 'cancelled'
     `,
     [authUser.id]
   );
@@ -1530,7 +1622,7 @@ async function handleWorkerDashboard(request, env, authUser) {
     `
       SELECT COUNT(*) AS total
       FROM orders
-      WHERE worker_id = ?
+      WHERE worker_id = ? AND is_deleted = 0
     `,
     [authUser.id]
   );
@@ -1549,7 +1641,7 @@ async function handleWorkerDashboard(request, env, authUser) {
 async function handleWorkerOrdersList(request, env, authUser) {
   const rows = await queryAll(
     env.DB,
-    `${ORDER_SELECT_SQL} WHERE o.worker_id = ? ORDER BY o.created_at DESC`,
+    `${ORDER_SELECT_SQL} WHERE o.worker_id = ? AND o.is_deleted = 0 ORDER BY o.created_at DESC`,
     [authUser.id]
   );
   return ok(request, env, rows.map(normalizeOrderRow));
@@ -1561,6 +1653,11 @@ async function handleWorkerOrderDetail(request, env, authUser, orderId) {
     return fail(request, env, 404, '订单不存在。', 'NOT_FOUND');
   }
   return ok(request, env, normalizeOrderRow(order));
+}
+
+async function handleWorkerDeleteOrder(request, env, authUser, orderId) {
+  const order = await getOrderRecordForWorker(env.DB, orderId, authUser.id);
+  return softDeleteOrder(request, env, order);
 }
 
 async function handleWorkerSettlementsList(request, env, authUser) {
@@ -1590,7 +1687,7 @@ async function handleCustomerDashboard(request, env, authUser) {
   );
   const orderCountRow = await queryFirst(
     env.DB,
-    `SELECT COUNT(*) AS total FROM orders WHERE customer_id = ?`,
+    `SELECT COUNT(*) AS total FROM orders WHERE customer_id = ? AND is_deleted = 0`,
     [authUser.id]
   );
   const inProgressCountRow = await queryFirst(
@@ -1598,7 +1695,7 @@ async function handleCustomerDashboard(request, env, authUser) {
     `
       SELECT COUNT(*) AS total
       FROM orders
-      WHERE customer_id = ? AND status IN ('pending_assignment', 'in_progress')
+      WHERE customer_id = ? AND is_deleted = 0 AND status IN ('pending_assignment', 'in_progress')
     `,
     [authUser.id]
   );
@@ -1770,7 +1867,7 @@ async function handleCustomerCreateOrder(request, env, authUser) {
 async function handleCustomerOrdersList(request, env, authUser) {
   const rows = await queryAll(
     env.DB,
-    `${ORDER_SELECT_SQL} WHERE o.customer_id = ? ORDER BY o.created_at DESC`,
+    `${ORDER_SELECT_SQL} WHERE o.customer_id = ? AND o.is_deleted = 0 ORDER BY o.created_at DESC`,
     [authUser.id]
   );
   return ok(request, env, rows.map(normalizeOrderRow));
@@ -1782,4 +1879,9 @@ async function handleCustomerOrderDetail(request, env, authUser, orderId) {
     return fail(request, env, 404, '订单不存在。', 'NOT_FOUND');
   }
   return ok(request, env, normalizeOrderRow(order));
+}
+
+async function handleCustomerDeleteOrder(request, env, authUser, orderId) {
+  const order = await getOrderRecordForCustomer(env.DB, orderId, authUser.id);
+  return softDeleteOrder(request, env, order);
 }

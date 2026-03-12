@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatDateTime } from '../lib/format';
 import type { Role } from '../types';
@@ -8,11 +9,13 @@ import { StatusBadge } from './StatusBadge';
 export function OrderDetailPanel({
   order,
   backTo,
-  viewerRole = 'admin'
+  viewerRole = 'admin',
+  actions
 }: {
   order: Order;
   backTo: string;
   viewerRole?: Role;
+  actions?: ReactNode;
 }) {
   const items: Array<[string, string]> = [
     ['订单编号', order.order_no],
@@ -44,9 +47,12 @@ export function OrderDetailPanel({
           <h1 className="text-2xl font-semibold text-ink">订单详情</h1>
           <p className="mt-1 text-sm text-slate-700">{description}</p>
         </div>
-        <Link to={backTo} className="btn-secondary">
-          返回列表
-        </Link>
+        <div className="flex items-center gap-3">
+          {actions}
+          <Link to={backTo} className="btn-secondary">
+            返回列表
+          </Link>
+        </div>
       </div>
 
       <Card

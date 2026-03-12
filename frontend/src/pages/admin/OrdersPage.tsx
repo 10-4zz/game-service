@@ -5,8 +5,8 @@ import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
-import { orderStatusLabelMap } from '../../lib/constants';
-import { apiGet, apiPost, apiPut } from '../../lib/api';
+import { canDeleteOrder, orderStatusLabelMap } from '../../lib/constants';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { Order, Product, UserSummary, WorkerSummary, OrderStatus } from '../../types';
 
@@ -39,6 +39,7 @@ export function AdminOrdersPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [form, setForm] = useState<OrderFormState>(initialForm);
   const [searchParams] = useSearchParams();
   const customerIdFilter = searchParams.get('customerId');
@@ -112,6 +113,27 @@ export function AdminOrdersPage() {
 
     resetForm();
     await load();
+  }
+
+  async function handleDelete(order: Order) {
+    const confirmed = window.confirm(`确认删除订单「${order.order_no}」吗？仅已结算或已取消订单允许删除。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(order.id);
+    try {
+      await apiDelete(`/api/admin/orders/${order.id}`);
+      if (editingOrderId === order.id) {
+        resetForm();
+      }
+      window.alert('订单删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const filteredOrders = useMemo(
@@ -237,6 +259,15 @@ export function AdminOrdersPage() {
                   <Link to={`/admin/orders/${row.id}`} className="btn-secondary px-3 py-2 text-xs">
                     详情
                   </Link>
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2 text-xs"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id || !canDeleteOrder(row.status)}
+                    title={canDeleteOrder(row.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
                 </div>
               )
             }

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingView } from '../../components/LoadingView';
 import { OrderDetailPanel } from '../../components/OrderDetailPanel';
-import { apiGet } from '../../lib/api';
+import { canDeleteOrder } from '../../lib/constants';
+import { apiDelete, apiGet } from '../../lib/api';
 import type { Order } from '../../types';
 
 export function AdminOrderDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -22,5 +25,40 @@ export function AdminOrderDetailPage() {
     return <LoadingView />;
   }
 
-  return <OrderDetailPanel order={order} backTo="/admin/orders" viewerRole="admin" />;
+  async function handleDelete() {
+    const confirmed = window.confirm(`确认删除订单「${order.order_no}」吗？仅已结算或已取消订单允许删除。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/admin/orders/${order.id}`);
+      window.alert('订单删除成功');
+      navigate('/admin/orders', { replace: true });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <OrderDetailPanel
+      order={order}
+      backTo="/admin/orders"
+      viewerRole="admin"
+      actions={
+        <button
+          type="button"
+          className="btn-danger"
+          onClick={() => void handleDelete()}
+          disabled={deleting || !canDeleteOrder(order.status)}
+          title={canDeleteOrder(order.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
+        >
+          {deleting ? '删除中...' : '删除订单'}
+        </button>
+      }
+    />
+  );
 }

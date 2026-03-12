@@ -20,6 +20,12 @@ export const paymentMethodLabelMap: Record<'alipay' | 'wechat', string> = {
   wechat: '微信'
 };
 
+export const deletableOrderStatuses: OrderStatus[] = ['settled', 'cancelled'];
+
+export function canDeleteOrder(status: OrderStatus) {
+  return deletableOrderStatuses.includes(status);
+}
+
 export interface NavItem {
   to: string;
   label: string;

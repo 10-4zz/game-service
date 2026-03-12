@@ -140,6 +140,13 @@ cd /22zhuxiangyi/game-service-platform/worker-api
 npx wrangler d1 execute game-service-platform-db --local --file=../database/seed.sql
 ```
 
+如果你是在已有数据库上升级本项目，而不是新建数据库，还需要执行这条迁移：
+
+```bash
+cd /22zhuxiangyi/game-service-platform/worker-api
+npx wrangler d1 execute game-service-platform-db --local --file=../database/add_orders_is_deleted.sql
+```
+
 ### 6. 配置本地环境变量
 
 复制 API 环境变量模板：
@@ -204,6 +211,12 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/sch
 
 ```bash
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/seed.sql
+```
+
+如果是升级已有线上 D1，请额外执行：
+
+```bash
+npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_is_deleted.sql
 ```
 
 ### 部署 Workers API
@@ -289,6 +302,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/admin/orders/:id`
 - `POST /api/admin/orders`
 - `PUT /api/admin/orders/:id`
+- `DELETE /api/admin/orders/:id`
 - `GET /api/admin/settlements`
 - `POST /api/admin/settlements`
 
@@ -297,6 +311,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/worker/dashboard`
 - `GET /api/worker/orders`
 - `GET /api/worker/orders/:id`
+- `DELETE /api/worker/orders/:id`
 - `GET /api/worker/settlements`
 
 ### 用户
@@ -308,6 +323,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `POST /api/customer/orders`
 - `GET /api/customer/orders`
 - `GET /api/customer/orders/:id`
+- `DELETE /api/customer/orders/:id`
 
 ## 说明与取舍
 

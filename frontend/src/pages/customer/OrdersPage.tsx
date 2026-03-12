@@ -4,23 +4,47 @@ import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
-import { apiGet } from '../../lib/api';
+import { canDeleteOrder } from '../../lib/constants';
+import { apiDelete, apiGet } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { Order } from '../../types';
 
 export function CustomerOrdersPage() {
   const [rows, setRows] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function load() {
+  async function load() {
+    setLoading(true);
+    try {
       const data = await apiGet<Order[]>('/api/customer/orders');
       setRows(data);
+    } finally {
       setLoading(false);
     }
+  }
 
+  useEffect(() => {
     void load();
   }, []);
+
+  async function handleDelete(order: Order) {
+    const confirmed = window.confirm(`确认删除订单「${order.order_no}」吗？仅已结算或已取消订单允许删除。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(order.id);
+    try {
+      await apiDelete(`/api/customer/orders/${order.id}`);
+      window.alert('订单删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -39,12 +63,23 @@ export function CustomerOrdersPage() {
             { key: 'status', title: '状态', render: (row) => <StatusBadge status={row.status} type="order" /> },
             { key: 'time', title: '订单时间', render: (row) => formatDateTime(row.order_time) },
             {
-              key: 'detail',
-              title: '详情',
+              key: 'actions',
+              title: '操作',
               render: (row) => (
-                <Link to={`/customer/orders/${row.id}`} className="btn-secondary px-3 py-2 text-xs">
-                  查看
-                </Link>
+                <div className="flex gap-2">
+                  <Link to={`/customer/orders/${row.id}`} className="btn-secondary px-3 py-2 text-xs">
+                    查看
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2 text-xs"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id || !canDeleteOrder(row.status)}
+                    title={canDeleteOrder(row.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
+                </div>
               )
             }
           ]}
