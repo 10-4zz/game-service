@@ -31,7 +31,7 @@ export function OrderDetailPanel({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">订单详情</h1>
-          <p className="mt-1 text-sm text-steel">查看订单价格构成、状态和结算信息。</p>
+          <p className="mt-1 text-sm text-slate-700">查看订单价格构成、状态和结算信息。</p>
         </div>
         <Link to={backTo} className="btn-secondary">
           返回列表

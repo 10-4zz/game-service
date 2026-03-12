@@ -16,13 +16,13 @@ export function AppShell() {
           <div className="pointer-events-none absolute -right-10 top-6 h-32 w-32 rounded-full bg-orange-500/20 blur-3xl" />
           <div className="pointer-events-none absolute left-0 top-0 h-full w-full bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0%,transparent_35%)]" />
           <div className="relative border-b border-slate-800 pb-5">
-            <span className="inline-flex rounded-full border border-orange-400/20 bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-300">
+            <span className="inline-flex rounded-full border border-orange-300/30 bg-orange-500/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-100">
               Control Room
             </span>
-            <p className="mt-4 text-xs uppercase tracking-[0.28em] text-orange-300">Game Service Platform</p>
+            <p className="mt-4 text-xs uppercase tracking-[0.28em] text-orange-200">Game Service Platform</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight">{user.displayName}</h1>
             <p className="mt-1 text-sm text-slate-300">{user.role}</p>
-            <p className="mt-4 max-w-[14rem] text-sm leading-6 text-slate-400">
+            <p className="mt-4 max-w-[14rem] text-sm leading-6 text-slate-300">
               管理订单流转、充值审核、打手分配与工资结算。
             </p>
           </div>
@@ -60,7 +60,7 @@ export function AppShell() {
             <div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-orange-200/60 blur-3xl" />
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <span className="inline-flex rounded-full border border-orange-200 bg-white/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-orange-700">
+                <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-orange-800">
                   Cloudflare MVP
                 </span>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink">业务管理控制台</h2>
@@ -68,7 +68,7 @@ export function AppShell() {
                   用更清晰的视图管理客户充值、订单分配、服务项目和打手结算。
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 text-sm text-slate-700 shadow-sm backdrop-blur">
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">当前账号</p>
                 <p className="mt-1 font-semibold text-slate-900">{user.username}</p>
               </div>

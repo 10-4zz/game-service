@@ -28,30 +28,30 @@ export function LoginPage() {
   return (
     <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(194,65,12,0.24),_transparent_24%),radial-gradient(circle_at_85%_18%,_rgba(14,165,233,0.16),_transparent_20%),linear-gradient(180deg,_#020617_0%,_#0f172a_42%,_#f8fafc_42%,_#f8fafc_100%)] px-4 py-16">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="self-center text-white">
-          <span className="inline-flex rounded-full border border-orange-400/20 bg-orange-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-300">
+        <div className="self-center rounded-[34px] border border-slate-800 bg-slate-950/88 p-8 text-white shadow-[0_24px_60px_rgba(2,6,23,0.32)]">
+          <span className="inline-flex rounded-full border border-orange-300/30 bg-orange-500/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-100">
             Control Room Access
           </span>
-          <p className="mt-5 text-sm uppercase tracking-[0.28em] text-orange-300">Game Service Platform</p>
+          <p className="mt-5 text-sm uppercase tracking-[0.28em] text-orange-200">Game Service Platform</p>
           <h1 className="mt-4 text-5xl font-semibold tracking-tight lg:text-6xl">
             游戏陪玩 / 代练 / 打手管理平台
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-7 text-slate-200">
+          <p className="mt-6 max-w-xl text-base leading-7 text-slate-100">
             一个面向老板、打手与客户的 Cloudflare 全栈 MVP，覆盖充值审核、余额下单、
             订单分配、收入统计和工资结算。
           </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[24px] border border-white/15 bg-slate-900/45 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)] backdrop-blur">
+            <div className="rounded-[24px] border border-slate-700 bg-slate-900 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)]">
               <p className="text-sm text-slate-200">管理员</p>
-              <p className="mt-2 text-lg font-semibold">订单、充值、结算总控</p>
+              <p className="mt-2 text-lg font-semibold text-white">订单、充值、结算总控</p>
             </div>
-            <div className="rounded-[24px] border border-white/15 bg-slate-900/45 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)] backdrop-blur">
+            <div className="rounded-[24px] border border-slate-700 bg-slate-900 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)]">
               <p className="text-sm text-slate-200">打手</p>
-              <p className="mt-2 text-lg font-semibold">只看自己的订单与工资</p>
+              <p className="mt-2 text-lg font-semibold text-white">只看自己的订单与工资</p>
             </div>
-            <div className="rounded-[24px] border border-white/15 bg-slate-900/45 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)] backdrop-blur">
+            <div className="rounded-[24px] border border-slate-700 bg-slate-900 p-4 shadow-[0_18px_40px_rgba(2,6,23,0.25)]">
               <p className="text-sm text-slate-200">客户</p>
-              <p className="mt-2 text-lg font-semibold">充值、下单、查询状态</p>
+              <p className="mt-2 text-lg font-semibold text-white">充值、下单、查询状态</p>
             </div>
           </div>
         </div>
@@ -103,15 +103,15 @@ export function LoginPage() {
           <div className="mt-8 rounded-[24px] border border-slate-300 bg-[linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] p-4 text-sm text-slate-700">
             <p className="font-semibold text-slate-900">种子账号</p>
             <div className="mt-3 space-y-2">
-              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+              <div className="rounded-xl border border-slate-300 bg-white px-3 py-2">
                 <span className="font-semibold text-slate-900">管理员：</span>
                 <span className="font-mono text-[13px]">admin / admin123456</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+              <div className="rounded-xl border border-slate-300 bg-white px-3 py-2">
                 <span className="font-semibold text-slate-900">打手：</span>
                 <span className="font-mono text-[13px]">worker_ares / worker123456</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2">
+              <div className="rounded-xl border border-slate-300 bg-white px-3 py-2">
                 <span className="font-semibold text-slate-900">客户：</span>
                 <span className="font-mono text-[13px]">customer_kevin / customer123456</span>
               </div>
