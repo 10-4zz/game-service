@@ -1,12 +1,25 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { navItemsByRole } from '../lib/constants';
 
 export function AppShell() {
   const { user, logout } = useAuth();
+  const { pathname } = useLocation();
 
   if (!user) {
     return null;
+  }
+
+  function isNavItemActive(to: string) {
+    if (to === '/customer/orders/new') {
+      return pathname === to;
+    }
+
+    if (to === '/customer/orders') {
+      return pathname.startsWith('/customer/orders') && pathname !== '/customer/orders/new';
+    }
+
+    return pathname === to || pathname.startsWith(`${to}/`);
   }
 
   return (
@@ -32,13 +45,11 @@ export function AppShell() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className={({ isActive }) =>
-                  `group flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm transition ${
-                    isActive
-                      ? 'bg-[linear-gradient(90deg,#c2410c_0%,#ea580c_100%)] text-white shadow-[0_14px_28px_rgba(194,65,12,0.28)]'
-                      : 'text-slate-200 hover:bg-slate-900 hover:text-white'
-                  }`
-                }
+                className={`group flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm transition ${
+                  isNavItemActive(item.to)
+                    ? 'bg-[linear-gradient(90deg,#c2410c_0%,#ea580c_100%)] text-white shadow-[0_14px_28px_rgba(194,65,12,0.28)]'
+                    : 'text-slate-200 hover:bg-slate-900 hover:text-white'
+                }`}
               >
                 <span className="font-medium">{item.label}</span>
                 <span className="h-2 w-2 rounded-full bg-current opacity-50 transition group-hover:opacity-80" />
