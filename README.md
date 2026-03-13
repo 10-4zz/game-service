@@ -145,6 +145,7 @@ npx wrangler d1 execute game-service-platform-db --local --file=../database/seed
 ```bash
 cd /22zhuxiangyi/game-service-platform/worker-api
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_orders_is_deleted.sql
+npx wrangler d1 execute game-service-platform-db --local --file=../database/add_users_session_key.sql
 ```
 
 如果你想直接在 D1 控制台执行 SQL，也可以手动运行：
@@ -152,6 +153,7 @@ npx wrangler d1 execute game-service-platform-db --local --file=../database/add_
 ```sql
 ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
 CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
+ALTER TABLE users ADD COLUMN session_key TEXT NOT NULL DEFAULT '';
 ```
 
 ### 6. 配置本地环境变量
@@ -236,6 +238,7 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/see
 
 ```bash
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_is_deleted.sql
+npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_users_session_key.sql
 ```
 
 如果你是在 Cloudflare Dashboard 的 D1 控制台里手动迁移，也可以直接执行：
@@ -243,6 +246,7 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/add
 ```sql
 ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
 CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
+ALTER TABLE users ADD COLUMN session_key TEXT NOT NULL DEFAULT '';
 ```
 
 ### 部署 Workers API

@@ -82,7 +82,9 @@ export default {
       }
 
       if (pathname === '/api/logout' && method === 'POST') {
-        return ok(request, env, { loggedOut: true });
+        const auth = await authenticate(request, env);
+        if (auth.response) return auth.response;
+        return handleLogout(request, env, auth.user);
       }
 
       if (pathname === '/api/me' && method === 'GET') {
@@ -485,6 +487,7 @@ async function createToken(user, secret) {
       username: user.username,
       role: user.role,
       displayName: user.displayName,
+      sessionKey: user.sessionKey || '',
       iat: now,
       exp: now + 7 * 24 * 60 * 60
     })
@@ -543,6 +546,12 @@ async function authenticate(request, env, roles) {
     };
   }
 
+  if (!payload.sessionKey || payload.sessionKey !== (dbUser.session_key || '')) {
+    return {
+      response: fail(request, env, 401, '该账号已在其他设备重新登录，请重新登录。', 'SESSION_REPLACED')
+    };
+  }
+
   const user = {
     id: Number(dbUser.id),
     username: dbUser.username,
@@ -577,7 +586,7 @@ async function getUserByUsername(db, username) {
   return queryFirst(
     db,
     `
-      SELECT id, username, password_hash, role, display_name, is_active, created_at
+      SELECT id, username, password_hash, role, display_name, is_active, session_key, created_at
       FROM users
       WHERE username = ?
     `,
@@ -589,12 +598,18 @@ async function getUserById(db, userId) {
   return queryFirst(
     db,
     `
-      SELECT id, username, password_hash, role, display_name, is_active, created_at
+      SELECT id, username, password_hash, role, display_name, is_active, session_key, created_at
       FROM users
       WHERE id = ?
     `,
     [userId]
   );
+}
+
+async function rotateUserSessionKey(db, userId) {
+  const sessionKey = crypto.randomUUID();
+  await execute(db, `UPDATE users SET session_key = ? WHERE id = ?`, [sessionKey, userId]);
+  return sessionKey;
 }
 
 async function getProductById(db, productId) {
@@ -806,7 +821,8 @@ async function handleLogin(request, env) {
     role: user.role,
     displayName: user.display_name
   };
-  const token = await createToken(authUser, env.JWT_SECRET);
+  const sessionKey = await rotateUserSessionKey(env.DB, authUser.id);
+  const token = await createToken({ ...authUser, sessionKey }, env.JWT_SECRET);
 
   return ok(request, env, { token, user: authUser });
 }
@@ -856,12 +872,18 @@ async function handleRegister(request, env) {
       role: 'customer',
       displayName
     };
-    const token = await createToken(authUser, env.JWT_SECRET);
+    const sessionKey = await rotateUserSessionKey(env.DB, authUser.id);
+    const token = await createToken({ ...authUser, sessionKey }, env.JWT_SECRET);
 
     return ok(request, env, { token, user: authUser }, 201, '注册成功。');
   } catch (error) {
     return fail(request, env, 500, '注册失败，请稍后重试。', 'REGISTER_FAILED', String(error));
   }
+}
+
+async function handleLogout(request, env, authUser) {
+  await rotateUserSessionKey(env.DB, authUser.id);
+  return ok(request, env, { loggedOut: true }, 200, '已退出登录。');
 }
 
 async function handleAdminDashboard(request, env) {

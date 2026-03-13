@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN session_key TEXT NOT NULL DEFAULT '';
