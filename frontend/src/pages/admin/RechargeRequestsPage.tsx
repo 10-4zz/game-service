@@ -6,7 +6,7 @@ import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
 import { paymentMethodLabelMap } from '../../lib/constants';
-import { apiGet, apiPut } from '../../lib/api';
+import { apiDelete, apiGet, apiPut } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { RechargeRequest } from '../../types';
 
@@ -15,6 +15,7 @@ export function AdminRechargeRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [searchParams] = useSearchParams();
   const customerIdFilter = searchParams.get('customerId');
 
@@ -42,6 +43,24 @@ export function AdminRechargeRequestsPage() {
     });
     window.alert('处理成功');
     await load();
+  }
+
+  async function handleDelete(row: RechargeRequest) {
+    const confirmed = window.confirm(`确认删除这条充值申请吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(row.id);
+    try {
+      await apiDelete(`/api/admin/recharge-requests/${row.id}`);
+      window.alert('充值申请删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const filtered = rows.filter((item) => {
@@ -123,19 +142,30 @@ export function AdminRechargeRequestsPage() {
             {
               key: 'action',
               title: '操作',
-              render: (row) =>
-                row.status === 'pending' ? (
-                  <div className="flex gap-2">
-                    <button type="button" className="btn-primary px-3 py-2 text-xs" onClick={() => void review(row.id, 'approved')}>
-                      通过
-                    </button>
-                    <button type="button" className="btn-danger px-3 py-2 text-xs" onClick={() => void review(row.id, 'rejected')}>
-                      拒绝
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-slate-600">{row.reviewer_name || '-'}</span>
-                )
+              render: (row) => (
+                <div className="flex gap-2">
+                  {row.status === 'pending' ? (
+                    <>
+                      <button type="button" className="btn-primary px-3 py-2 text-xs" onClick={() => void review(row.id, 'approved')}>
+                        通过
+                      </button>
+                      <button type="button" className="btn-danger px-3 py-2 text-xs" onClick={() => void review(row.id, 'rejected')}>
+                        拒绝
+                      </button>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center px-2 text-xs text-slate-600">{row.reviewer_name || '-'}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2 text-xs"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
+                </div>
+              )
             }
           ]}
         />

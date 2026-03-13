@@ -312,6 +312,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `PUT /api/admin/products/:id`
 - `DELETE /api/admin/products/:id`
 - `GET /api/admin/recharge-requests`
+- `DELETE /api/admin/recharge-requests/:id`
 - `PUT /api/admin/recharge-requests/:id/review`
 - `GET /api/admin/orders`
 - `GET /api/admin/orders/:id`
@@ -329,6 +330,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/worker/orders/:id`
 - `DELETE /api/worker/orders/:id`
 - `GET /api/worker/settlements`
+- `DELETE /api/worker/settlements/:id`
 
 ### 用户
 

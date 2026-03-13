@@ -173,6 +173,13 @@ export default {
         return handleAdminReviewRecharge(request, env, auth.user, Number(adminRechargeReviewMatch[1]));
       }
 
+      const adminRechargeMatch = pathname.match(/^\/api\/admin\/recharge-requests\/(\d+)$/);
+      if (adminRechargeMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteRechargeRequest(request, env, Number(adminRechargeMatch[1]));
+      }
+
       if (pathname === '/api/admin/orders' && method === 'GET') {
         const auth = await authenticate(request, env, ['admin']);
         if (auth.response) return auth.response;
@@ -252,6 +259,13 @@ export default {
         const auth = await authenticate(request, env, ['worker']);
         if (auth.response) return auth.response;
         return handleWorkerSettlementsList(request, env, auth.user);
+      }
+
+      const workerSettlementMatch = pathname.match(/^\/api\/worker\/settlements\/(\d+)$/);
+      if (workerSettlementMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['worker']);
+        if (auth.response) return auth.response;
+        return handleWorkerDeleteSettlement(request, env, auth.user, Number(workerSettlementMatch[1]));
       }
 
       if (pathname === '/api/customer/dashboard' && method === 'GET') {
@@ -1255,6 +1269,41 @@ async function handleAdminReviewRecharge(request, env, authUser, rechargeRequest
   return ok(request, env, { id: rechargeRequestId, status }, 200, '审核完成。');
 }
 
+async function handleAdminDeleteRechargeRequest(request, env, rechargeRequestId) {
+  const rechargeRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, user_id, amount, status
+      FROM recharge_requests
+      WHERE id = ?
+    `,
+    [rechargeRequestId]
+  );
+
+  if (!rechargeRequest) {
+    return fail(request, env, 404, '充值申请不存在。', 'NOT_FOUND');
+  }
+
+  if (rechargeRequest.status === 'approved') {
+    const balance = await getWalletBalance(env.DB, rechargeRequest.user_id);
+    const amount = roundMoney(Number(rechargeRequest.amount));
+    if (balance < amount) {
+      return fail(
+        request,
+        env,
+        409,
+        '该笔已通过充值已经被部分使用，当前余额不足以回滚，不能删除。',
+        'RECHARGE_DELETE_BLOCKED'
+      );
+    }
+
+    await execute(env.DB, `DELETE FROM wallet_transactions WHERE related_recharge_request_id = ?`, [rechargeRequestId]);
+  }
+
+  await execute(env.DB, `DELETE FROM recharge_requests WHERE id = ?`, [rechargeRequestId]);
+  return ok(request, env, { id: rechargeRequestId, deleted: true }, 200, '充值申请已删除。');
+}
+
 async function handleAdminOrdersList(request, env) {
   const rows = await queryAll(env.DB, `${ORDER_SELECT_SQL} WHERE o.is_deleted = 0 ORDER BY o.created_at DESC`);
   return ok(request, env, rows.map(normalizeOrderRow));
@@ -1653,6 +1702,52 @@ async function handleAdminDeleteSettlement(request, env, settlementId) {
       WHERE id = ?
     `,
     [settlementId]
+  );
+
+  if (!settlement) {
+    return fail(request, env, 404, '结算记录不存在。', 'NOT_FOUND');
+  }
+
+  const relatedOrders = await queryAll(
+    env.DB,
+    `
+      SELECT id
+      FROM orders
+      WHERE settlement_id = ?
+    `,
+    [settlementId]
+  );
+
+  await execute(
+    env.DB,
+    `
+      UPDATE orders
+      SET status = 'completed', settlement_id = NULL
+      WHERE settlement_id = ?
+    `,
+    [settlementId]
+  );
+
+  await execute(env.DB, `DELETE FROM settlements WHERE id = ?`, [settlementId]);
+
+  return ok(
+    request,
+    env,
+    { id: settlementId, deleted: true, restored_orders: relatedOrders.length },
+    200,
+    '结算记录已删除，关联订单已恢复为待结算。'
+  );
+}
+
+async function handleWorkerDeleteSettlement(request, env, authUser, settlementId) {
+  const settlement = await queryFirst(
+    env.DB,
+    `
+      SELECT id, worker_id, amount, settlement_time, remark, created_at
+      FROM settlements
+      WHERE id = ? AND worker_id = ?
+    `,
+    [settlementId, authUser.id]
   );
 
   if (!settlement) {
