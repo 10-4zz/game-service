@@ -16,6 +16,10 @@
 - 数据库：Cloudflare D1
 - 认证：账号密码 + JWT Bearer Token
 
+当前 Worker 实际部署入口：
+
+- [dashboard-worker.js](/22zhuxiangyi/game-service-platform/worker-api/dashboard-worker.js)
+
 登录与注册入口：
 
 - 管理员登录：`/admin/login`
@@ -28,6 +32,8 @@
 - `admin` 与 `worker` 账号由管理员在后台创建
 - `customer` 支持前台自助注册
 - 登录接口会校验角色入口，必须从对应角色页面登录
+- 最新的订单双方确认结算、退款申请审核等逻辑已写在 `dashboard-worker.js`
+- `worker-api/src/` 下的模块化 Hono 代码目前不是最新业务版本，重新部署时应以 `dashboard-worker.js` 为准
 
 ## 项目结构
 
@@ -312,6 +318,11 @@ CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status)
 cd /22zhuxiangyi/game-service-platform/worker-api
 npm run deploy
 ```
+
+注意：
+
+- 当前 [wrangler.jsonc](/22zhuxiangyi/game-service-platform/worker-api/wrangler.jsonc) 已指向 [dashboard-worker.js](/22zhuxiangyi/game-service-platform/worker-api/dashboard-worker.js)
+- 如果你之前部署的是 `worker-api/src/index.ts` 对应的版本，那么订单“双方确认后自动结算”、退款审核等新功能不会生效
 
 ### 使用 Cloudflare Dashboard 手动部署单文件 Worker
 
