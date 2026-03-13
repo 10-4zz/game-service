@@ -76,7 +76,7 @@ export function AdminSettlementsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="结算管理" description="对已完成订单发起工资结算，并查看结算记录。" />
+      <PageHeader title="结算管理" description="查看工资结算记录；订单通常会在双方确认完成后自动结算，这里也支持管理员手动补结算。" />
 
       <Card title="发起结算">
         <form className="grid gap-4 md:grid-cols-[1fr_2fr_auto]" onSubmit={handleSubmit}>

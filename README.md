@@ -49,9 +49,10 @@ game-service-platform/
 - 仪表盘总览
 - 充值申请审核
 - 充值记录查看
+- 退款申请审核
 - 用户管理
 - 打手管理
-- 订单创建、编辑、详情查看
+- 订单创建、编辑、任意状态调整、详情查看
 - 工资结算管理
 - 服务项目管理
 
@@ -59,6 +60,7 @@ game-service-platform/
 
 - 个人收入首页
 - 仅查看自己的订单
+- 确认订单完成
 - 查看自己的结算记录
 - 查看订单详情
 
@@ -67,6 +69,7 @@ game-service-platform/
 - 用户余额和订单总览
 - 扫码支付后直接充值入账
 - 查看充值记录状态
+- 提交余额退款申请
 - 浏览服务项目
 - 余额下单
 - 查看自己的订单与详情
@@ -78,6 +81,7 @@ game-service-platform/
 - `users`
 - `service_products`
 - `recharge_requests`
+- `refund_requests`
 - `wallet_transactions`
 - `orders`
 - `settlements`
@@ -86,10 +90,12 @@ game-service-platform/
 
 - 用户余额 = `wallet_transactions` 流入 - 流出
 - 客户扫码支付确认后，系统会直接生成充值记录并写入 `wallet_transactions`
-- 订单创建时，自动扣减用户余额
-- 订单调价时，会自动补扣或退款
-- 订单取消时，会自动退款
-- 结算时，会把该打手所有 `completed` 订单打包结算并置为 `settled`
+- 订单创建时仅校验余额，不立即扣款
+- 打手和客户都确认订单完成后，系统才会从客户余额扣款并把订单自动置为 `settled`
+- 若双方确认时余额不足，订单会转为 `pending_recharge`
+- 若结算记录被删除或管理员回退订单状态，只要订单仍是双方已确认，也可以在订单详情页再次触发结算
+- 管理员仍可手动修改订单状态，也可通过结算页手动结算 `completed` 订单
+- 客户可提交余额退款申请，管理员线下退款后在平台审核通过，系统会扣减对应余额
 
 ## 默认种子账号
 
@@ -146,6 +152,8 @@ npx wrangler d1 execute game-service-platform-db --local --file=../database/seed
 cd /22zhuxiangyi/game-service-platform/worker-api
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_orders_is_deleted.sql
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_users_session_key.sql
+npx wrangler d1 execute game-service-platform-db --local --file=../database/add_orders_completion_fields.sql
+npx wrangler d1 execute game-service-platform-db --local --file=../database/add_refund_requests.sql
 ```
 
 如果你想直接在 D1 控制台执行 SQL，也可以手动运行：
@@ -154,6 +162,25 @@ npx wrangler d1 execute game-service-platform-db --local --file=../database/add_
 ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
 CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
 ALTER TABLE users ADD COLUMN session_key TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN customer_completed INTEGER NOT NULL DEFAULT 0 CHECK (customer_completed IN (0, 1));
+ALTER TABLE orders ADD COLUMN customer_completed_at TEXT;
+ALTER TABLE orders ADD COLUMN worker_completed INTEGER NOT NULL DEFAULT 0 CHECK (worker_completed IN (0, 1));
+ALTER TABLE orders ADD COLUMN worker_completed_at TEXT;
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  remark TEXT,
+  review_remark TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_user_id ON refund_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
 ```
 
 ### 6. 配置本地环境变量
@@ -239,6 +266,8 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/see
 ```bash
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_is_deleted.sql
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_users_session_key.sql
+npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_completion_fields.sql
+npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_refund_requests.sql
 ```
 
 如果你是在 Cloudflare Dashboard 的 D1 控制台里手动迁移，也可以直接执行：
@@ -247,6 +276,25 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/add
 ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
 CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
 ALTER TABLE users ADD COLUMN session_key TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN customer_completed INTEGER NOT NULL DEFAULT 0 CHECK (customer_completed IN (0, 1));
+ALTER TABLE orders ADD COLUMN customer_completed_at TEXT;
+ALTER TABLE orders ADD COLUMN worker_completed INTEGER NOT NULL DEFAULT 0 CHECK (worker_completed IN (0, 1));
+ALTER TABLE orders ADD COLUMN worker_completed_at TEXT;
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  remark TEXT,
+  review_remark TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_user_id ON refund_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
 ```
 
 ### 部署 Workers API
@@ -330,6 +378,8 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/admin/recharge-requests`
 - `DELETE /api/admin/recharge-requests/:id`
 - `PUT /api/admin/recharge-requests/:id/review`
+- `GET /api/admin/refund-requests`
+- `PUT /api/admin/refund-requests/:id/review`
 - `GET /api/admin/orders`
 - `GET /api/admin/orders/:id`
 - `POST /api/admin/orders`
@@ -344,6 +394,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `GET /api/worker/dashboard`
 - `GET /api/worker/orders`
 - `GET /api/worker/orders/:id`
+- `POST /api/worker/orders/:id/complete`
 - `DELETE /api/worker/orders/:id`
 - `GET /api/worker/settlements`
 - `DELETE /api/worker/settlements/:id`
@@ -355,15 +406,19 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `POST /api/customer/recharge-requests`
 - `GET /api/customer/recharge-requests`
 - `DELETE /api/customer/recharge-requests/:id`
+- `POST /api/customer/refund-requests`
+- `GET /api/customer/refund-requests`
 - `POST /api/customer/orders`
 - `GET /api/customer/orders`
 - `GET /api/customer/orders/:id`
+- `POST /api/customer/orders/:id/complete`
 - `DELETE /api/customer/orders/:id`
 
 ## 说明与取舍
 
 - 当前版本是 MVP，不接入真实支付和上传。
 - 登录使用 JWT Bearer Token，前端存储在 `localStorage`。
-- 结算采用“按打手一次性结算所有已完成订单”的简化模型。
+- 订单默认在双方确认完成后自动结算；管理员仍保留手动修改状态和手动结算入口。
+- 退款采用“客户提交申请 -> 管理员线下退款 -> 平台审核通过后扣减余额”的简化模型。
 - 未实现更复杂的审批流、消息通知、细粒度审计日志。
 - 页面采用前端分页，适合 MVP 和中小数据量。

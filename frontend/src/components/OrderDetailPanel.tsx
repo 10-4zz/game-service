@@ -26,6 +26,11 @@ export function OrderDetailPanel({
     ['时长', `${order.duration_hours} 小时`],
     ['单价', formatCurrency(order.unit_price)],
     ['总额', formatCurrency(order.total_amount)],
+    ['已扣余额', formatCurrency(order.collected_amount)],
+    ['客户确认', order.customer_completed ? '已确认' : '未确认'],
+    ['打手确认', order.worker_completed ? '已确认' : '未确认'],
+    ['客户确认时间', formatDateTime(order.customer_completed_at)],
+    ['打手确认时间', formatDateTime(order.worker_completed_at)],
     ['创建时间', formatDateTime(order.created_at)]
   ];
 
@@ -37,8 +42,8 @@ export function OrderDetailPanel({
 
   const description =
     viewerRole === 'customer'
-      ? '查看订单状态、服务信息和应付金额。'
-      : '查看订单价格构成、状态和结算信息。';
+      ? '查看订单状态、确认进度、应付金额和已扣余额；若双方已确认但仍未结算，可再次发起结算。'
+      : '查看订单价格构成、确认进度、状态和结算信息；若双方已确认但仍未结算，也可再次发起结算。';
 
   return (
     <div className="space-y-6">

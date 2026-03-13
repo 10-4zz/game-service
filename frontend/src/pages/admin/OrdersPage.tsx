@@ -149,7 +149,7 @@ export function AdminOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="订单管理" description="老板可创建订单、指派打手、更新状态与查看详情。" />
+      <PageHeader title="订单管理" description="管理员可创建订单、指派打手、任意调整状态，并查看双方确认进度。" />
 
       <Card title={editingOrderId ? '编辑订单' : '创建订单'} extra={editingOrderId ? <button type="button" className="btn-secondary" onClick={resetForm}>取消编辑</button> : null}>
         <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleSubmit}>
@@ -190,7 +190,7 @@ export function AdminOrdersPage() {
             <label className="label">状态</label>
             <select className="field" value={form.status} onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as OrderStatus }))}>
               {Object.entries(orderStatusLabelMap)
-                .filter(([status]) => status !== 'pending_recharge' && status !== 'settled')
+                .filter(([status]) => (editingOrderId ? true : status !== 'settled'))
                 .map(([status, label]) => (
                   <option key={status} value={status}>
                     {label}
@@ -246,6 +246,11 @@ export function AdminOrdersPage() {
             { key: 'worker', title: '打手', render: (row) => row.worker_name || '待分配' },
             { key: 'amount', title: '总额', render: (row) => formatCurrency(row.total_amount) },
             { key: 'income', title: '实际收入', render: (row) => formatCurrency(row.worker_income) },
+            {
+              key: 'confirm',
+              title: '确认进度',
+              render: (row) => `${row.customer_completed ? '客户已确认' : '客户未确认'} / ${row.worker_completed ? '打手已确认' : '打手未确认'}`
+            },
             { key: 'status', title: '状态', render: (row) => <StatusBadge status={row.status} type="order" /> },
             { key: 'time', title: '订单时间', render: (row) => formatDateTime(row.order_time) },
             {

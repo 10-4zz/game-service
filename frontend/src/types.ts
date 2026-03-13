@@ -106,6 +106,11 @@ export interface Order {
   total_amount: number;
   commission_amount: number;
   worker_income: number;
+  customer_completed: boolean;
+  customer_completed_at?: string | null;
+  worker_completed: boolean;
+  worker_completed_at?: string | null;
+  collected_amount: number;
   status: OrderStatus;
   remark: string | null;
   created_at: string;
@@ -144,4 +149,18 @@ export interface CustomerDashboardData {
   };
   orderCount: number;
   inProgressCount: number;
+}
+
+export interface RefundRequest {
+  id: number;
+  user_id: number;
+  user_name?: string;
+  amount: number;
+  remark: string | null;
+  review_remark?: string | null;
+  status: RechargeStatus;
+  reviewed_by?: number | null;
+  reviewed_at?: string | null;
+  reviewer_name?: string | null;
+  created_at: string;
 }

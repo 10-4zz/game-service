@@ -48,7 +48,7 @@ export function CustomerOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="我的订单" description="查看订单状态、已分配打手和应付金额。" />
+      <PageHeader title="我的订单" description="查看订单状态、打手分配和双方确认进度。" />
       {loading ? (
         <LoadingView />
       ) : (
@@ -60,6 +60,11 @@ export function CustomerOrdersPage() {
             { key: 'service', title: '服务项目', render: (row) => `${row.game_name} / ${row.service_name}` },
             { key: 'worker', title: '打手', render: (row) => row.worker_name || '待分配' },
             { key: 'amount', title: '总额', render: (row) => formatCurrency(row.total_amount) },
+            {
+              key: 'confirm',
+              title: '确认进度',
+              render: (row) => `${row.customer_completed ? '客户已确认' : '客户未确认'} / ${row.worker_completed ? '打手已确认' : '打手未确认'}`
+            },
             { key: 'status', title: '状态', render: (row) => <StatusBadge status={row.status} type="order" /> },
             { key: 'time', title: '订单时间', render: (row) => formatDateTime(row.order_time) },
             {

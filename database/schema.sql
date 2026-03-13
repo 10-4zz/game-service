@@ -38,6 +38,20 @@ CREATE TABLE IF NOT EXISTS recharge_requests (
   FOREIGN KEY (reviewed_by) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  remark TEXT,
+  review_remark TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS settlements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   worker_id INTEGER NOT NULL,
@@ -61,6 +75,10 @@ CREATE TABLE IF NOT EXISTS orders (
   total_amount REAL NOT NULL,
   commission_amount REAL NOT NULL,
   worker_income REAL NOT NULL,
+  customer_completed INTEGER NOT NULL DEFAULT 0 CHECK (customer_completed IN (0, 1)),
+  customer_completed_at TEXT,
+  worker_completed INTEGER NOT NULL DEFAULT 0 CHECK (worker_completed IN (0, 1)),
+  worker_completed_at TEXT,
   status TEXT NOT NULL CHECK (
     status IN (
       'pending_recharge',
@@ -99,6 +117,8 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_products_active ON service_products(is_active);
 CREATE INDEX IF NOT EXISTS idx_recharge_requests_user_id ON recharge_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_recharge_requests_status ON recharge_requests(status);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_user_id ON refund_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user_id ON wallet_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_related_order ON wallet_transactions(related_order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);

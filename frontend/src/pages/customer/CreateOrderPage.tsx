@@ -38,7 +38,7 @@ export function CustomerCreateOrderPage() {
       duration_hours: duration,
       remark
     });
-    window.alert('订单创建成功');
+    window.alert('订单创建成功，双方确认完成后才会从余额扣款。');
     setRemark('');
   }
 
@@ -48,7 +48,7 @@ export function CustomerCreateOrderPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="下单中心" description="选择服务、时长并自动计算总额。" />
+      <PageHeader title="下单中心" description="选择服务、时长并自动计算总额；双方确认完成后系统才会从余额扣款。" />
 
       <Card title="创建订单">
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>

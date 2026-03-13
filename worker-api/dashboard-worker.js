@@ -17,7 +17,7 @@ const ORDER_STATUSES = [
 ];
 const DELETABLE_ORDER_STATUSES = ['settled', 'cancelled'];
 const USER_ROLES = ['admin', 'worker', 'customer'];
-const MUTABLE_ORDER_STATUSES = ['pending_assignment', 'in_progress', 'completed', 'cancelled'];
+const MUTABLE_ORDER_STATUSES = ORDER_STATUSES;
 const RECHARGE_STATUSES = ['pending', 'approved', 'rejected'];
 const PAYMENT_METHODS = ['alipay', 'wechat'];
 const ROLE_LABEL_MAP = {
@@ -41,8 +41,17 @@ const ORDER_SELECT_SQL = `
     o.commission_amount,
     o.worker_income,
     o.status,
+    o.customer_completed,
+    o.customer_completed_at,
+    o.worker_completed,
+    o.worker_completed_at,
     o.remark,
     o.created_at,
+    COALESCE((
+      SELECT SUM(CASE WHEN wt.direction = 'out' THEN wt.amount ELSE -wt.amount END)
+      FROM wallet_transactions wt
+      WHERE wt.related_order_id = o.id
+    ), 0) AS collected_amount,
     customer.display_name AS customer_name,
     worker.display_name AS worker_name,
     product.game_name,
@@ -232,6 +241,19 @@ export default {
         return handleAdminDeleteSettlement(request, env, Number(adminSettlementMatch[1]));
       }
 
+      if (pathname === '/api/admin/refund-requests' && method === 'GET') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminRefundRequestsList(request, env);
+      }
+
+      const adminRefundReviewMatch = pathname.match(/^\/api\/admin\/refund-requests\/(\d+)\/review$/);
+      if (adminRefundReviewMatch && method === 'PUT') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminReviewRefundRequest(request, env, auth.user, Number(adminRefundReviewMatch[1]));
+      }
+
       if (pathname === '/api/worker/dashboard' && method === 'GET') {
         const auth = await authenticate(request, env, ['worker']);
         if (auth.response) return auth.response;
@@ -255,6 +277,13 @@ export default {
         const auth = await authenticate(request, env, ['worker']);
         if (auth.response) return auth.response;
         return handleWorkerDeleteOrder(request, env, auth.user, Number(workerOrderMatch[1]));
+      }
+
+      const workerOrderCompleteMatch = pathname.match(/^\/api\/worker\/orders\/(\d+)\/complete$/);
+      if (workerOrderCompleteMatch && method === 'POST') {
+        const auth = await authenticate(request, env, ['worker']);
+        if (auth.response) return auth.response;
+        return handleWorkerCompleteOrder(request, env, auth.user, Number(workerOrderCompleteMatch[1]));
       }
 
       if (pathname === '/api/worker/settlements' && method === 'GET') {
@@ -301,6 +330,18 @@ export default {
         return handleCustomerDeleteRechargeRequest(request, env, auth.user, Number(customerRechargeMatch[1]));
       }
 
+      if (pathname === '/api/customer/refund-requests' && method === 'POST') {
+        const auth = await authenticate(request, env, ['customer']);
+        if (auth.response) return auth.response;
+        return handleCustomerCreateRefundRequest(request, env, auth.user);
+      }
+
+      if (pathname === '/api/customer/refund-requests' && method === 'GET') {
+        const auth = await authenticate(request, env, ['customer']);
+        if (auth.response) return auth.response;
+        return handleCustomerRefundRequestsList(request, env, auth.user);
+      }
+
       if (pathname === '/api/customer/orders' && method === 'POST') {
         const auth = await authenticate(request, env, ['customer']);
         if (auth.response) return auth.response;
@@ -324,6 +365,13 @@ export default {
         const auth = await authenticate(request, env, ['customer']);
         if (auth.response) return auth.response;
         return handleCustomerDeleteOrder(request, env, auth.user, Number(customerOrderMatch[1]));
+      }
+
+      const customerOrderCompleteMatch = pathname.match(/^\/api\/customer\/orders\/(\d+)\/complete$/);
+      if (customerOrderCompleteMatch && method === 'POST') {
+        const auth = await authenticate(request, env, ['customer']);
+        if (auth.response) return auth.response;
+        return handleCustomerCompleteOrder(request, env, auth.user, Number(customerOrderCompleteMatch[1]));
       }
 
       return fail(request, env, 404, '接口不存在。', 'NOT_FOUND');
@@ -766,12 +814,41 @@ async function getOrderRecordForCustomer(db, orderId, customerId) {
   return queryFirst(
     db,
     `
-      SELECT id, order_no, customer_id, worker_id, status, settlement_id, is_deleted
+      SELECT id, order_no, customer_id, worker_id, status, settlement_id, total_amount, worker_income, is_deleted
       FROM orders
       WHERE id = ? AND customer_id = ?
     `,
     [orderId, customerId]
   );
+}
+
+async function getOrderCollectedAmount(db, orderId) {
+  const row = await queryFirst(
+    db,
+    `
+      SELECT COALESCE(SUM(CASE WHEN direction = 'out' THEN amount ELSE -amount END), 0) AS total
+      FROM wallet_transactions
+      WHERE related_order_id = ?
+    `,
+    [orderId]
+  );
+  return roundMoney(Number(row?.total || 0));
+}
+
+async function getSettlementOrderStats(db, settlementId) {
+  const row = await queryFirst(
+    db,
+    `
+      SELECT COUNT(*) AS total, COALESCE(SUM(worker_income), 0) AS amount
+      FROM orders
+      WHERE settlement_id = ?
+    `,
+    [settlementId]
+  );
+  return {
+    total: Number(row?.total || 0),
+    amount: roundMoney(Number(row?.amount || 0))
+  };
 }
 
 function canDeleteOrderStatus(status) {
@@ -800,11 +877,14 @@ async function softDeleteOrder(request, env, order) {
 function normalizeOrderRow(row) {
   return {
     ...row,
+    customer_completed: Boolean(row.customer_completed),
+    worker_completed: Boolean(row.worker_completed),
     duration_hours: Number(row.duration_hours),
     unit_price: roundMoney(Number(row.unit_price)),
     total_amount: roundMoney(Number(row.total_amount)),
     commission_amount: roundMoney(Number(row.commission_amount)),
-    worker_income: roundMoney(Number(row.worker_income))
+    worker_income: roundMoney(Number(row.worker_income)),
+    collected_amount: roundMoney(Number(row.collected_amount || 0))
   };
 }
 
@@ -820,6 +900,116 @@ function normalizeSettlementRow(row) {
     ...row,
     amount: roundMoney(Number(row.amount))
   };
+}
+
+function normalizeRefundRequestRow(row) {
+  return {
+    ...row,
+    amount: roundMoney(Number(row.amount))
+  };
+}
+
+async function adjustSettlementForOrderRemoval(db, settlementId, workerIncome) {
+  if (!settlementId) {
+    return;
+  }
+
+  const stats = await getSettlementOrderStats(db, settlementId);
+  if (stats.total <= 1) {
+    await execute(db, `DELETE FROM settlements WHERE id = ?`, [settlementId]);
+    return;
+  }
+
+  const settlement = await queryFirst(db, `SELECT amount FROM settlements WHERE id = ?`, [settlementId]);
+  const nextAmount = roundMoney(Number(settlement?.amount || 0) - roundMoney(Number(workerIncome)));
+  await execute(db, `UPDATE settlements SET amount = ? WHERE id = ?`, [Math.max(0, nextAmount), settlementId]);
+}
+
+async function reverseOrderSettlementIfNeeded(db, order, remark) {
+  const collectedAmount = await getOrderCollectedAmount(db, order.id);
+  if (collectedAmount > 0) {
+    await execute(
+      db,
+      `
+        INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+        VALUES (?, 'refund', ?, 'in', ?, ?)
+      `,
+      [order.customer_id, collectedAmount, order.id, remark]
+    );
+  }
+
+  if (order.settlement_id) {
+    await adjustSettlementForOrderRemoval(db, order.settlement_id, order.worker_income);
+  }
+
+  await execute(db, `UPDATE orders SET settlement_id = NULL WHERE id = ?`, [order.id]);
+}
+
+async function settleOrder(db, order, { remark, settledAt } = {}) {
+  if (!order.worker_id) {
+    throw new Error('ORDER_SETTLE_NO_WORKER');
+  }
+
+  const collectedAmount = await getOrderCollectedAmount(db, order.id);
+  const delta = roundMoney(Number(order.total_amount) - collectedAmount);
+
+  if (delta > 0) {
+    const balance = await getWalletBalance(db, order.customer_id);
+    if (balance < delta) {
+      return { ok: false, code: 'BALANCE_NOT_ENOUGH' };
+    }
+  }
+
+  let settlementId = order.settlement_id;
+  if (!settlementId) {
+    const settlementTime = settledAt || new Date().toISOString();
+    const result = await execute(
+      db,
+      `
+        INSERT INTO settlements (worker_id, amount, settlement_time, remark)
+        VALUES (?, ?, ?, ?)
+      `,
+      [order.worker_id, roundMoney(Number(order.worker_income)), settlementTime, remark || `订单 ${order.order_no} 自动结算。`]
+    );
+    settlementId = Number(result.meta.last_row_id);
+  }
+
+  if (delta > 0) {
+    await execute(
+      db,
+      `
+        INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+        VALUES (?, 'order_deduct', ?, 'out', ?, ?)
+      `,
+      [order.customer_id, delta, order.id, `订单 ${order.order_no} 完成结算扣款。`]
+    );
+  } else if (delta < 0) {
+    await execute(
+      db,
+      `
+        INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+        VALUES (?, 'refund', ?, 'in', ?, ?)
+      `,
+      [order.customer_id, Math.abs(delta), order.id, `订单 ${order.order_no} 结算差额退款。`]
+    );
+  }
+
+  await execute(
+    db,
+    `
+      UPDATE orders
+      SET status = 'settled',
+          settlement_id = ?,
+          customer_completed = 1,
+          worker_completed = 1,
+          customer_completed_at = COALESCE(customer_completed_at, ?),
+          worker_completed_at = COALESCE(worker_completed_at, ?)
+      WHERE id = ?
+    `,
+    [settlementId, settledAt || new Date().toISOString(), settledAt || new Date().toISOString(), order.id]
+  );
+
+  return { ok: true, settlementId };
 }
 
 async function deleteRechargeRequestWithRollback(request, env, rechargeRequestId, expectedUserId = null) {
@@ -1485,8 +1675,11 @@ async function handleAdminCreateOrder(request, env) {
   if (status !== 'pending_assignment' && status !== 'cancelled' && !workerId) {
     return fail(request, env, 400, '进行中或已完成订单必须指定打手。');
   }
+  if (status === 'settled') {
+    return fail(request, env, 400, '请先创建订单，再通过编辑或双方确认进入已结算状态。');
+  }
 
-  const { orderId, orderNo } = await insertOrderWithRetry(env.DB, {
+  const { orderId } = await insertOrderWithRetry(env.DB, {
     customerId,
     workerId,
     productId,
@@ -1500,21 +1693,6 @@ async function handleAdminCreateOrder(request, env) {
     remark
   });
 
-  await execute(
-    env.DB,
-    `
-      INSERT INTO wallet_transactions (
-        user_id,
-        type,
-        amount,
-        direction,
-        related_order_id,
-        remark
-      ) VALUES (?, 'order_deduct', ?, 'out', ?, ?)
-    `,
-    [customerId, totalAmount, orderId, `订单 ${orderNo} 扣款。`]
-  );
-
   const order = await getOrderDetailById(env.DB, orderId);
   return ok(request, env, normalizeOrderRow(order), 201, '订单创建成功。');
 }
@@ -1524,9 +1702,6 @@ async function handleAdminUpdateOrder(request, env, orderId) {
   if (!existing) {
     return fail(request, env, 404, '订单不存在。', 'NOT_FOUND');
   }
-  if (existing.status === 'settled') {
-    return fail(request, env, 400, '已结算订单不允许修改。');
-  }
 
   const body = await parseJson(request);
   const nextStatus = body.status === undefined ? existing.status : body.status;
@@ -1534,14 +1709,8 @@ async function handleAdminUpdateOrder(request, env, orderId) {
   const nextRemark = body.remark === undefined ? existing.remark : optionalString(body.remark);
   const nextOrderTime = trimString(body.order_time) || existing.order_time;
 
-  if (existing.status === 'cancelled' && nextStatus !== 'cancelled') {
-    return fail(request, env, 400, '已取消订单不支持重新激活。');
-  }
   if (!MUTABLE_ORDER_STATUSES.includes(nextStatus)) {
     return fail(request, env, 400, '订单状态非法。');
-  }
-  if (nextStatus === 'settled') {
-    return fail(request, env, 400, '请通过结算接口完成 settled 状态更新。');
   }
   if (nextStatus !== 'pending_assignment' && nextStatus !== 'cancelled' && !nextWorkerId) {
     return fail(request, env, 400, '进行中或已完成订单必须指定打手。');
@@ -1605,33 +1774,57 @@ async function handleAdminUpdateOrder(request, env, orderId) {
     return fail(request, env, 400, '抽成金额不能大于订单总额。');
   }
 
-  if (nextStatus === 'cancelled') {
-    const refunded = await queryFirst(
+  const now = new Date().toISOString();
+  const nextCustomerCompleted =
+    body.customer_completed !== undefined
+      ? booleanFlag(body.customer_completed)
+      : nextStatus === 'settled'
+        ? true
+        : nextStatus === 'pending_assignment' || nextStatus === 'in_progress'
+          ? false
+          : Boolean(existing.customer_completed);
+  const nextWorkerCompleted =
+    body.worker_completed !== undefined
+      ? booleanFlag(body.worker_completed)
+      : nextStatus === 'settled'
+        ? true
+        : nextStatus === 'pending_assignment' || nextStatus === 'in_progress'
+          ? false
+          : Boolean(existing.worker_completed);
+  const nextCustomerCompletedAt = nextCustomerCompleted
+    ? existing.customer_completed_at || now
+    : null;
+  const nextWorkerCompletedAt = nextWorkerCompleted
+    ? existing.worker_completed_at || now
+    : null;
+
+  const shouldRebuildSettlement =
+    existing.status === 'settled' &&
+    (
+      nextStatus !== 'settled' ||
+      Number(nextWorkerId || 0) !== Number(existing.worker_id || 0) ||
+      Number(productId) !== Number(existing.product_id) ||
+      roundMoney(durationHours) !== roundMoney(Number(existing.duration_hours)) ||
+      roundMoney(unitPrice) !== roundMoney(Number(existing.unit_price)) ||
+      roundMoney(commissionAmount) !== roundMoney(Number(existing.commission_amount))
+    );
+
+  const existingCollectedAmount = await getOrderCollectedAmount(env.DB, orderId);
+  let settlementId = existing.settlement_id;
+  if (shouldRebuildSettlement) {
+    await reverseOrderSettlementIfNeeded(env.DB, existing, `订单 ${existing.order_no} 调整后回退已结算状态，余额已退回。`);
+    settlementId = null;
+  } else if (nextStatus === 'cancelled' && existingCollectedAmount > 0) {
+    await execute(
       env.DB,
       `
-        SELECT COUNT(*) AS total
-        FROM wallet_transactions
-        WHERE related_order_id = ? AND type = 'refund'
+        INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+        VALUES (?, 'refund', ?, 'in', ?, ?)
       `,
-      [orderId]
+      [existing.customer_id, existingCollectedAmount, orderId, `订单 ${existing.order_no} 取消退款。`]
     );
-    if (Number(refunded?.total || 0) === 0) {
-      await execute(
-        env.DB,
-        `
-          INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
-          VALUES (?, 'refund', ?, 'in', ?, ?)
-        `,
-        [
-          existing.customer_id,
-          roundMoney(Number(existing.total_amount)),
-          orderId,
-          `订单 ${existing.order_no} 取消退款。`
-        ]
-      );
-    }
-  } else {
-    const delta = roundMoney(totalAmount - Number(existing.total_amount));
+  } else if (nextStatus !== 'settled' && existingCollectedAmount > 0) {
+    const delta = roundMoney(totalAmount - existingCollectedAmount);
     if (delta > 0) {
       const walletBalance = await getWalletBalance(env.DB, existing.customer_id);
       if (walletBalance < delta) {
@@ -1657,12 +1850,19 @@ async function handleAdminUpdateOrder(request, env, orderId) {
     }
   }
 
+  const baseStatus =
+    nextStatus === 'settled' && (shouldRebuildSettlement || existing.status !== 'settled')
+      ? 'completed'
+      : nextStatus;
+
   await execute(
     env.DB,
     `
       UPDATE orders
       SET worker_id = ?, product_id = ?, order_time = ?, duration_hours = ?, unit_price = ?,
-          total_amount = ?, commission_amount = ?, worker_income = ?, status = ?, remark = ?
+          total_amount = ?, commission_amount = ?, worker_income = ?, status = ?, remark = ?,
+          customer_completed = ?, customer_completed_at = ?, worker_completed = ?, worker_completed_at = ?,
+          settlement_id = ?
       WHERE id = ?
     `,
     [
@@ -1674,11 +1874,40 @@ async function handleAdminUpdateOrder(request, env, orderId) {
       totalAmount,
       commissionAmount,
       workerIncome,
-      nextStatus,
+      baseStatus,
       nextRemark,
+      nextCustomerCompleted ? 1 : 0,
+      nextCustomerCompletedAt,
+      nextWorkerCompleted ? 1 : 0,
+      nextWorkerCompletedAt,
+      settlementId,
       orderId
     ]
   );
+
+  if (nextStatus === 'settled' && (shouldRebuildSettlement || existing.status !== 'settled')) {
+    const updatedOrder = await getOrderDetailById(env.DB, orderId);
+    const settleResult = await settleOrder(env.DB, updatedOrder, {
+      remark: `订单 ${updatedOrder.order_no} 管理员手动结算。`,
+      settledAt: now
+    });
+
+    if (!settleResult.ok) {
+      await execute(
+        env.DB,
+        `UPDATE orders SET status = 'pending_recharge' WHERE id = ?`,
+        [orderId]
+      );
+      const pendingRechargeOrder = await getOrderDetailById(env.DB, orderId);
+      return ok(
+        request,
+        env,
+        normalizeOrderRow(pendingRechargeOrder),
+        200,
+        '客户当前余额不足，订单已转为待充值状态。'
+      );
+    }
+  }
 
   const order = await getOrderDetailById(env.DB, orderId);
   return ok(request, env, normalizeOrderRow(order), 200, '订单更新成功。');
@@ -1722,7 +1951,7 @@ async function handleAdminCreateSettlement(request, env) {
   const pendingOrders = await queryAll(
     env.DB,
     `
-      SELECT id, worker_income
+      SELECT id, order_no, customer_id, total_amount, worker_income
       FROM orders
       WHERE worker_id = ?
         AND status = 'completed'
@@ -1738,6 +1967,23 @@ async function handleAdminCreateSettlement(request, env) {
   const totalAmount = roundMoney(
     pendingOrders.reduce((sum, order) => sum + Number(order.worker_income), 0)
   );
+
+  const neededByCustomer = new Map();
+  for (const order of pendingOrders) {
+    const collectedAmount = await getOrderCollectedAmount(env.DB, order.id);
+    const delta = roundMoney(Number(order.total_amount) - collectedAmount);
+    if (delta > 0) {
+      neededByCustomer.set(order.customer_id, roundMoney((neededByCustomer.get(order.customer_id) || 0) + delta));
+    }
+  }
+
+  for (const [customerId, neededAmount] of neededByCustomer.entries()) {
+    const balance = await getWalletBalance(env.DB, customerId);
+    if (balance < neededAmount) {
+      return fail(request, env, 409, `客户 #${customerId} 当前余额不足，无法完成结算。`, 'ORDER_SETTLE_BALANCE_NOT_ENOUGH');
+    }
+  }
+
   const settlementTime = new Date().toISOString();
   const result = await execute(
     env.DB,
@@ -1750,14 +1996,42 @@ async function handleAdminCreateSettlement(request, env) {
 
   const settlementId = Number(result.meta.last_row_id);
   for (const order of pendingOrders) {
+    const collectedAmount = await getOrderCollectedAmount(env.DB, order.id);
+    const delta = roundMoney(Number(order.total_amount) - collectedAmount);
+
+    if (delta > 0) {
+      await execute(
+        env.DB,
+        `
+          INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+          VALUES (?, 'order_deduct', ?, 'out', ?, ?)
+        `,
+        [order.customer_id, delta, order.id, `订单 ${order.order_no} 结算扣款。`]
+      );
+    } else if (delta < 0) {
+      await execute(
+        env.DB,
+        `
+          INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+          VALUES (?, 'refund', ?, 'in', ?, ?)
+        `,
+        [order.customer_id, Math.abs(delta), order.id, `订单 ${order.order_no} 结算差额退款。`]
+      );
+    }
+
     await execute(
       env.DB,
       `
         UPDATE orders
-        SET status = 'settled', settlement_id = ?
+        SET status = 'settled',
+            settlement_id = ?,
+            customer_completed = 1,
+            worker_completed = 1,
+            customer_completed_at = COALESCE(customer_completed_at, ?),
+            worker_completed_at = COALESCE(worker_completed_at, ?)
         WHERE id = ?
       `,
-      [settlementId, order.id]
+      [settlementId, settlementTime, settlementTime, order.id]
     );
   }
 
@@ -1793,12 +2067,26 @@ async function handleAdminDeleteSettlement(request, env, settlementId) {
   const relatedOrders = await queryAll(
     env.DB,
     `
-      SELECT id
+      SELECT id, order_no, customer_id
       FROM orders
       WHERE settlement_id = ?
     `,
     [settlementId]
   );
+
+  for (const order of relatedOrders) {
+    const collectedAmount = await getOrderCollectedAmount(env.DB, order.id);
+    if (collectedAmount > 0) {
+      await execute(
+        env.DB,
+        `
+          INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+          VALUES (?, 'refund', ?, 'in', ?, ?)
+        `,
+        [order.customer_id, collectedAmount, order.id, `订单 ${order.order_no} 删除结算记录后退回余额。`]
+      );
+    }
+  }
 
   await execute(
     env.DB,
@@ -1821,6 +2109,87 @@ async function handleAdminDeleteSettlement(request, env, settlementId) {
   );
 }
 
+async function handleAdminRefundRequestsList(request, env) {
+  const rows = await queryAll(
+    env.DB,
+    `
+      SELECT
+        rr.id,
+        rr.user_id,
+        rr.amount,
+        rr.remark,
+        rr.review_remark,
+        rr.status,
+        rr.reviewed_by,
+        rr.reviewed_at,
+        rr.created_at,
+        u.display_name AS user_name,
+        reviewer.display_name AS reviewer_name
+      FROM refund_requests rr
+      JOIN users u ON u.id = rr.user_id
+      LEFT JOIN users reviewer ON reviewer.id = rr.reviewed_by
+      ORDER BY rr.created_at DESC
+    `
+  );
+  return ok(request, env, rows.map(normalizeRefundRequestRow));
+}
+
+async function handleAdminReviewRefundRequest(request, env, authUser, refundRequestId) {
+  const body = await parseJson(request);
+  const status = body.status;
+  const reviewRemark = optionalString(body.review_remark);
+
+  if (!RECHARGE_STATUSES.includes(status) || status === 'pending') {
+    return fail(request, env, 400, '退款审核状态只能是 approved 或 rejected。');
+  }
+
+  const refundRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, user_id, amount, status
+      FROM refund_requests
+      WHERE id = ?
+    `,
+    [refundRequestId]
+  );
+
+  if (!refundRequest) {
+    return fail(request, env, 404, '退款申请不存在。', 'NOT_FOUND');
+  }
+  if (refundRequest.status !== 'pending') {
+    return fail(request, env, 400, '该退款申请已经处理过了。');
+  }
+
+  if (status === 'approved') {
+    const balance = await getWalletBalance(env.DB, refundRequest.user_id);
+    const amount = roundMoney(Number(refundRequest.amount));
+    if (balance < amount) {
+      return fail(request, env, 409, '客户当前余额不足，无法通过退款申请。', 'REFUND_BALANCE_NOT_ENOUGH');
+    }
+
+    await execute(
+      env.DB,
+      `
+        INSERT INTO wallet_transactions (user_id, type, amount, direction, remark)
+        VALUES (?, 'refund', ?, 'out', ?)
+      `,
+      [refundRequest.user_id, amount, `退款申请 #${refundRequestId} 审核通过，线下退款后平台扣减余额。`]
+    );
+  }
+
+  await execute(
+    env.DB,
+    `
+      UPDATE refund_requests
+      SET status = ?, review_remark = ?, reviewed_by = ?, reviewed_at = ?
+      WHERE id = ?
+    `,
+    [status, reviewRemark, authUser.id, new Date().toISOString(), refundRequestId]
+  );
+
+  return ok(request, env, { id: refundRequestId, status }, 200, '退款申请审核完成。');
+}
+
 async function handleWorkerDeleteSettlement(request, env, authUser, settlementId) {
   const settlement = await queryFirst(
     env.DB,
@@ -1839,12 +2208,26 @@ async function handleWorkerDeleteSettlement(request, env, authUser, settlementId
   const relatedOrders = await queryAll(
     env.DB,
     `
-      SELECT id
+      SELECT id, order_no, customer_id
       FROM orders
       WHERE settlement_id = ?
     `,
     [settlementId]
   );
+
+  for (const order of relatedOrders) {
+    const collectedAmount = await getOrderCollectedAmount(env.DB, order.id);
+    if (collectedAmount > 0) {
+      await execute(
+        env.DB,
+        `
+          INSERT INTO wallet_transactions (user_id, type, amount, direction, related_order_id, remark)
+          VALUES (?, 'refund', ?, 'in', ?, ?)
+        `,
+        [order.customer_id, collectedAmount, order.id, `订单 ${order.order_no} 删除结算记录后退回余额。`]
+      );
+    }
+  }
 
   await execute(
     env.DB,
@@ -1927,6 +2310,80 @@ async function handleWorkerOrderDetail(request, env, authUser, orderId) {
 async function handleWorkerDeleteOrder(request, env, authUser, orderId) {
   const order = await getOrderRecordForWorker(env.DB, orderId, authUser.id);
   return softDeleteOrder(request, env, order);
+}
+
+async function handleOrderCompletion(request, env, order, actor) {
+  if (!order) {
+    return fail(request, env, 404, '订单不存在。', 'NOT_FOUND');
+  }
+  if (!order.worker_id || order.status === 'pending_assignment') {
+    return fail(request, env, 400, '订单尚未分配或未开始，暂不能确认完成。');
+  }
+  if (order.status === 'cancelled') {
+    return fail(request, env, 400, '已取消订单不能确认完成。');
+  }
+  if (order.status === 'settled') {
+    return ok(request, env, normalizeOrderRow(order), 200, '订单已经是已结算状态。');
+  }
+
+  const completeColumn = actor === 'customer' ? 'customer_completed' : 'worker_completed';
+  const completeTimeColumn = actor === 'customer' ? 'customer_completed_at' : 'worker_completed_at';
+  const actorLabel = actor === 'customer' ? '客户' : '打手';
+  const waitingLabel = actor === 'customer' ? '打手' : '客户';
+  const now = new Date().toISOString();
+
+  if (!Boolean(order[completeColumn])) {
+    await execute(
+      env.DB,
+      `
+        UPDATE orders
+        SET ${completeColumn} = 1,
+            ${completeTimeColumn} = COALESCE(${completeTimeColumn}, ?),
+            status = CASE
+              WHEN status IN ('in_progress', 'pending_recharge') THEN 'completed'
+              ELSE status
+            END
+        WHERE id = ?
+      `,
+      [now, order.id]
+    );
+  }
+
+  let updatedOrder = await getOrderDetailById(env.DB, order.id);
+  if (Boolean(updatedOrder.customer_completed) && Boolean(updatedOrder.worker_completed)) {
+    const settleResult = await settleOrder(env.DB, updatedOrder, {
+      remark: `订单 ${updatedOrder.order_no} 双方确认完成后自动结算。`,
+      settledAt: now
+    });
+
+    if (!settleResult.ok) {
+      await execute(env.DB, `UPDATE orders SET status = 'pending_recharge' WHERE id = ?`, [order.id]);
+      updatedOrder = await getOrderDetailById(env.DB, order.id);
+      return ok(
+        request,
+        env,
+        normalizeOrderRow(updatedOrder),
+        200,
+        '双方已确认完成，但客户当前余额不足，订单已转为待充值状态。'
+      );
+    }
+
+    updatedOrder = await getOrderDetailById(env.DB, order.id);
+    return ok(request, env, normalizeOrderRow(updatedOrder), 200, '双方已确认完成，订单已自动结算。');
+  }
+
+  return ok(
+    request,
+    env,
+    normalizeOrderRow(updatedOrder),
+    200,
+    `${actorLabel}已确认完成，等待${waitingLabel}确认。`
+  );
+}
+
+async function handleWorkerCompleteOrder(request, env, authUser, orderId) {
+  const order = await getOrderDetailForWorker(env.DB, orderId, authUser.id);
+  return handleOrderCompletion(request, env, order, 'worker');
 }
 
 async function handleWorkerSettlementsList(request, env, authUser) {
@@ -2098,6 +2555,47 @@ async function handleCustomerDeleteRechargeRequest(request, env, authUser, recha
   return deleteRechargeRequestWithRollback(request, env, rechargeRequestId, authUser.id);
 }
 
+async function handleCustomerCreateRefundRequest(request, env, authUser) {
+  const body = await parseJson(request);
+  const amount = positiveNumber(body.amount);
+  const remark = optionalString(body.remark);
+
+  if (amount === null) {
+    return fail(request, env, 400, '请输入正确的退款金额。');
+  }
+
+  const refundAmount = roundMoney(amount);
+  const balance = await getWalletBalance(env.DB, authUser.id);
+  if (balance < refundAmount) {
+    return fail(request, env, 400, '当前余额不足，不能申请超额退款。');
+  }
+
+  const result = await execute(
+    env.DB,
+    `
+      INSERT INTO refund_requests (user_id, amount, remark, status)
+      VALUES (?, ?, ?, 'pending')
+    `,
+    [authUser.id, refundAmount, remark]
+  );
+
+  return ok(request, env, { id: Number(result.meta.last_row_id) }, 201, '退款申请已提交，等待管理员审核。');
+}
+
+async function handleCustomerRefundRequestsList(request, env, authUser) {
+  const rows = await queryAll(
+    env.DB,
+    `
+      SELECT id, user_id, amount, remark, review_remark, status, reviewed_by, reviewed_at, created_at
+      FROM refund_requests
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `,
+    [authUser.id]
+  );
+  return ok(request, env, rows.map(normalizeRefundRequestRow));
+}
+
 async function handleCustomerCreateOrder(request, env, authUser) {
   const body = await parseJson(request);
   const productId = optionalId(body.product_id);
@@ -2124,7 +2622,7 @@ async function handleCustomerCreateOrder(request, env, authUser) {
     return fail(request, env, 400, '余额不足，请先充值。');
   }
 
-  const { orderId, orderNo } = await insertOrderWithRetry(env.DB, {
+  const { orderId } = await insertOrderWithRetry(env.DB, {
     customerId: authUser.id,
     workerId: null,
     productId,
@@ -2137,20 +2635,6 @@ async function handleCustomerCreateOrder(request, env, authUser) {
     status: 'pending_assignment',
     remark
   });
-  await execute(
-    env.DB,
-    `
-      INSERT INTO wallet_transactions (
-        user_id,
-        type,
-        amount,
-        direction,
-        related_order_id,
-        remark
-      ) VALUES (?, 'order_deduct', ?, 'out', ?, ?)
-    `,
-    [authUser.id, totalAmount, orderId, `订单 ${orderNo} 扣款。`]
-  );
 
   const order = await getOrderDetailForCustomer(env.DB, orderId, authUser.id);
   return ok(request, env, normalizeOrderRow(order), 201, '订单创建成功。');
@@ -2176,4 +2660,9 @@ async function handleCustomerOrderDetail(request, env, authUser, orderId) {
 async function handleCustomerDeleteOrder(request, env, authUser, orderId) {
   const order = await getOrderRecordForCustomer(env.DB, orderId, authUser.id);
   return softDeleteOrder(request, env, order);
+}
+
+async function handleCustomerCompleteOrder(request, env, authUser, orderId) {
+  const order = await getOrderDetailForCustomer(env.DB, orderId, authUser.id);
+  return handleOrderCompletion(request, env, order, 'customer');
 }

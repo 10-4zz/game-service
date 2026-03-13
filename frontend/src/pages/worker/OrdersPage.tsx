@@ -48,7 +48,7 @@ export function WorkerOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="陪玩记录" description="仅展示分配给自己的订单。" />
+      <PageHeader title="陪玩记录" description="仅展示分配给自己的订单，并支持确认完成。" />
       {loading ? (
         <LoadingView />
       ) : (
@@ -60,6 +60,11 @@ export function WorkerOrdersPage() {
             { key: 'customer', title: '客户', render: (row) => row.customer_name },
             { key: 'service', title: '服务', render: (row) => `${row.game_name} / ${row.service_name}` },
             { key: 'income', title: '实际收入', render: (row) => formatCurrency(row.worker_income) },
+            {
+              key: 'confirm',
+              title: '确认进度',
+              render: (row) => `${row.customer_completed ? '客户已确认' : '客户未确认'} / ${row.worker_completed ? '打手已确认' : '打手未确认'}`
+            },
             { key: 'status', title: '状态', render: (row) => <StatusBadge status={row.status} type="order" /> },
             { key: 'time', title: '订单时间', render: (row) => formatDateTime(row.order_time) },
             {

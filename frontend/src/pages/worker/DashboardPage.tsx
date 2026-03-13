@@ -24,7 +24,7 @@ export function WorkerDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="打手个人首页" description="查看自己的订单收入和结算进度。" />
+      <PageHeader title="打手个人首页" description="查看自己的订单收入和结算进度；订单在双方确认完成后会自动进入结算。" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="总收入" value={formatCurrency(data.totalIncome)} />
         <StatCard title="已结算" value={formatCurrency(data.settledAmount)} />

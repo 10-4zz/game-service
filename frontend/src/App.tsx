@@ -11,6 +11,7 @@ import { AdminOrderDetailPage } from './pages/admin/OrderDetailPage';
 import { AdminProductsPage } from './pages/admin/ProductsPage';
 import { AdminRechargeRecordsPage } from './pages/admin/RechargeRecordsPage';
 import { AdminRechargeRequestsPage } from './pages/admin/RechargeRequestsPage';
+import { AdminRefundRequestsPage } from './pages/admin/RefundRequestsPage';
 import { AdminSettlementsPage } from './pages/admin/SettlementsPage';
 import { AdminUsersPage } from './pages/admin/UsersPage';
 import { AdminWorkersPage } from './pages/admin/WorkersPage';
@@ -20,6 +21,7 @@ import { CustomerOrdersPage } from './pages/customer/OrdersPage';
 import { CustomerProductsPage } from './pages/customer/ProductsPage';
 import { CustomerRechargeRecordsPage } from './pages/customer/RechargeRecordsPage';
 import { CustomerRechargeRequestPage } from './pages/customer/RechargeRequestPage';
+import { CustomerRefundRequestsPage } from './pages/customer/RefundRequestsPage';
 import { CustomerCreateOrderPage } from './pages/customer/CreateOrderPage';
 import { WorkerDashboardPage } from './pages/worker/DashboardPage';
 import { WorkerOrderDetailPage } from './pages/worker/OrderDetailPage';
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/recharges" element={<AdminRechargeRequestsPage />} />
           <Route path="/admin/recharge-records" element={<AdminRechargeRecordsPage />} />
+          <Route path="/admin/refunds" element={<AdminRefundRequestsPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/workers" element={<AdminWorkersPage />} />
           <Route path="/admin/orders" element={<AdminOrdersPage />} />
@@ -79,6 +82,7 @@ export default function App() {
           <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
           <Route path="/customer/recharge" element={<CustomerRechargeRequestPage />} />
           <Route path="/customer/recharge-records" element={<CustomerRechargeRecordsPage />} />
+          <Route path="/customer/refunds" element={<CustomerRefundRequestsPage />} />
           <Route path="/customer/products" element={<CustomerProductsPage />} />
           <Route path="/customer/orders/new" element={<CustomerCreateOrderPage />} />
           <Route path="/customer/orders" element={<CustomerOrdersPage />} />

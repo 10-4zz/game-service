@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingView } from '../../components/LoadingView';
 import { OrderDetailPanel } from '../../components/OrderDetailPanel';
 import { canDeleteOrder } from '../../lib/constants';
-import { apiDelete, apiGet } from '../../lib/api';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import type { Order } from '../../types';
 
 export function WorkerOrderDetailPage() {
@@ -11,6 +11,7 @@ export function WorkerOrderDetailPage() {
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -26,6 +27,15 @@ export function WorkerOrderDetailPage() {
   }
 
   const currentOrder = order;
+  const canRetrySettlement =
+    currentOrder.customer_completed &&
+    currentOrder.worker_completed &&
+    (currentOrder.status === 'completed' || currentOrder.status === 'pending_recharge');
+  const canConfirmComplete =
+    currentOrder.status !== 'pending_assignment' &&
+    currentOrder.status !== 'cancelled' &&
+    currentOrder.status !== 'settled' &&
+    (!currentOrder.worker_completed || canRetrySettlement);
 
   async function handleDelete(targetOrder: Order) {
     const confirmed = window.confirm(`确认删除订单「${targetOrder.order_no}」吗？仅已结算或已取消订单允许删除。`);
@@ -45,21 +55,55 @@ export function WorkerOrderDetailPage() {
     }
   }
 
+  async function handleComplete(targetOrder: Order) {
+    setConfirming(true);
+    try {
+      const updatedOrder = await apiPost<Order>(`/api/worker/orders/${targetOrder.id}/complete`);
+      setOrder(updatedOrder);
+      const message =
+        updatedOrder.status === 'settled'
+          ? '双方已确认完成，订单已自动结算。'
+          : updatedOrder.status === 'pending_recharge' && updatedOrder.customer_completed && updatedOrder.worker_completed
+            ? '双方已确认完成，但客户当前余额不足，订单已转为待补余额。'
+            : '你已确认完成，等待客户确认。';
+      window.alert(message);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '确认失败');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <OrderDetailPanel
       order={currentOrder}
       backTo="/worker/orders"
       viewerRole="worker"
       actions={
-        <button
-          type="button"
-          className="btn-danger"
-          onClick={() => void handleDelete(currentOrder)}
-          disabled={deleting || !canDeleteOrder(currentOrder.status)}
-          title={canDeleteOrder(currentOrder.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
-        >
-          {deleting ? '删除中...' : '删除订单'}
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void handleComplete(currentOrder)}
+            disabled={confirming || !canConfirmComplete}
+            title={canConfirmComplete ? '确认订单已完成' : '当前状态下不能确认完成'}
+          >
+            {canRetrySettlement
+              ? confirming ? '处理中...' : '重新结算'
+              : currentOrder.worker_completed
+                ? '已确认完成'
+                : confirming ? '确认中...' : '确认完成'}
+          </button>
+          <button
+            type="button"
+            className="btn-danger"
+            onClick={() => void handleDelete(currentOrder)}
+            disabled={deleting || !canDeleteOrder(currentOrder.status)}
+            title={canDeleteOrder(currentOrder.status) ? '删除订单' : '仅已结算或已取消订单可删除'}
+          >
+            {deleting ? '删除中...' : '删除订单'}
+          </button>
+        </>
       }
     />
   );

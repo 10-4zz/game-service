@@ -25,7 +25,7 @@ export function CustomerDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="用户首页" description="查看余额、充值入账状态和当前订单数量。" />
+      <PageHeader title="用户首页" description="查看余额、充值入账状态和当前订单数量；订单在双方确认完成后才会正式扣减余额。" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="当前余额" value={formatCurrency(data.balance)} />
         <StatCard title="累计充值" value={formatCurrency(data.cumulativeRecharge)} />

@@ -3,6 +3,7 @@ PRAGMA foreign_keys = OFF;
 DELETE FROM wallet_transactions;
 DELETE FROM orders;
 DELETE FROM settlements;
+DELETE FROM refund_requests;
 DELETE FROM recharge_requests;
 DELETE FROM service_products;
 DELETE FROM users;
@@ -11,6 +12,7 @@ DELETE FROM sqlite_sequence WHERE name IN (
   'users',
   'service_products',
   'recharge_requests',
+  'refund_requests',
   'wallet_transactions',
   'orders',
   'settlements'
@@ -39,6 +41,10 @@ INSERT INTO recharge_requests (id, user_id, amount, payment_method, voucher_url,
 INSERT INTO settlements (id, worker_id, amount, settlement_time, remark, created_at) VALUES
   (1, 2, 192.00, '2026-03-05 18:00:00', '第一批已完成订单结算', '2026-03-05 18:00:00');
 
+INSERT INTO refund_requests (id, user_id, amount, remark, review_remark, status, reviewed_by, reviewed_at, created_at) VALUES
+  (1, 4, 180.00, '申请退回部分闲置余额', '已线下退款，平台同步扣减余额。', 'approved', 1, '2026-03-06 16:20:00', '2026-03-06 15:50:00'),
+  (2, 5, 80.00, '本周暂时不用，申请退回余额。', NULL, 'pending', NULL, NULL, '2026-03-10 12:10:00');
+
 INSERT INTO orders (
   id,
   order_no,
@@ -52,16 +58,20 @@ INSERT INTO orders (
   total_amount,
   commission_amount,
   worker_income,
+  customer_completed,
+  customer_completed_at,
+  worker_completed,
+  worker_completed_at,
   status,
   remark,
   created_at
 ) VALUES
-  (1, 'GSP202603010001', 4, 2, 1, 1, '2026-03-01 20:00:00', 2.00, 120.00, 240.00, 48.00, 192.00, 'settled', '晚间排位冲分。', '2026-03-01 18:30:00'),
-  (2, 'GSP202603090001', 4, 2, 2, NULL, '2026-03-09 21:00:00', 3.00, 68.00, 204.00, 36.72, 167.28, 'in_progress', '三排连麦，持续陪玩。', '2026-03-09 19:00:00'),
-  (3, 'GSP202603020001', 5, 3, 3, NULL, '2026-03-02 20:30:00', 3.00, 88.00, 264.00, 39.60, 224.40, 'completed', '进阶训练单，等待结算。', '2026-03-02 18:00:00'),
-  (4, 'GSP202603080001', 5, NULL, 4, NULL, '2026-03-08 19:30:00', 2.00, 58.00, 116.00, 20.88, 95.12, 'pending_assignment', '等待安排擅长运营阵容的陪玩。', '2026-03-08 18:20:00'),
-  (5, 'GSP202603070001', 4, NULL, 4, NULL, '2026-03-07 16:00:00', 1.00, 58.00, 58.00, 10.44, 47.56, 'cancelled', '用户临时取消，已原路退回余额。', '2026-03-07 15:30:00'),
-  (6, 'GSP202603100001', 4, 2, 2, NULL, '2026-03-10 22:00:00', 1.00, 68.00, 68.00, 12.24, 55.76, 'completed', '收尾加时单，待老板结算。', '2026-03-10 21:10:00');
+  (1, 'GSP202603010001', 4, 2, 1, 1, '2026-03-01 20:00:00', 2.00, 120.00, 240.00, 48.00, 192.00, 1, '2026-03-01 21:50:00', 1, '2026-03-01 21:45:00', 'settled', '晚间排位冲分。', '2026-03-01 18:30:00'),
+  (2, 'GSP202603090001', 4, 2, 2, NULL, '2026-03-09 21:00:00', 3.00, 68.00, 204.00, 36.72, 167.28, 0, NULL, 0, NULL, 'in_progress', '三排连麦，持续陪玩。', '2026-03-09 19:00:00'),
+  (3, 'GSP202603020001', 5, 3, 3, NULL, '2026-03-02 20:30:00', 3.00, 88.00, 264.00, 39.60, 224.40, 0, NULL, 1, '2026-03-02 23:30:00', 'completed', '打手已确认完成，等待客户确认。', '2026-03-02 18:00:00'),
+  (4, 'GSP202603080001', 5, NULL, 4, NULL, '2026-03-08 19:30:00', 2.00, 58.00, 116.00, 20.88, 95.12, 0, NULL, 0, NULL, 'pending_assignment', '等待安排擅长运营阵容的陪玩。', '2026-03-08 18:20:00'),
+  (5, 'GSP202603070001', 4, NULL, 4, NULL, '2026-03-07 16:00:00', 1.00, 58.00, 58.00, 10.44, 47.56, 0, NULL, 0, NULL, 'cancelled', '用户临时取消。', '2026-03-07 15:30:00'),
+  (6, 'GSP202603100001', 4, 2, 2, NULL, '2026-03-10 22:00:00', 5.00, 68.00, 340.00, 61.20, 278.80, 1, '2026-03-10 23:10:00', 1, '2026-03-10 23:05:00', 'pending_recharge', '双方已确认完成，等待补充余额后自动结算。', '2026-03-10 21:10:00');
 
 INSERT INTO wallet_transactions (
   id,
@@ -77,11 +87,6 @@ INSERT INTO wallet_transactions (
   (1, 4, 'recharge', 700.00, 'in', NULL, 1, '充值申请通过，余额入账。', '2026-03-01 11:05:10'),
   (2, 5, 'recharge', 450.00, 'in', NULL, 3, '充值申请通过，余额入账。', '2026-03-02 09:35:10'),
   (3, 4, 'order_deduct', 240.00, 'out', 1, NULL, '订单 GSP202603010001 扣款。', '2026-03-01 18:30:10'),
-  (4, 4, 'order_deduct', 204.00, 'out', 2, NULL, '订单 GSP202603090001 扣款。', '2026-03-09 19:00:10'),
-  (5, 5, 'order_deduct', 264.00, 'out', 3, NULL, '订单 GSP202603020001 扣款。', '2026-03-02 18:00:10'),
-  (6, 5, 'order_deduct', 116.00, 'out', 4, NULL, '订单 GSP202603080001 扣款。', '2026-03-08 18:20:10'),
-  (7, 4, 'order_deduct', 58.00, 'out', 5, NULL, '订单 GSP202603070001 扣款。', '2026-03-07 15:30:10'),
-  (8, 4, 'refund', 58.00, 'in', 5, NULL, '订单 GSP202603070001 取消退款。', '2026-03-07 15:35:10'),
-  (9, 4, 'order_deduct', 68.00, 'out', 6, NULL, '订单 GSP202603100001 扣款。', '2026-03-10 21:10:10');
+  (4, 4, 'refund', 180.00, 'out', NULL, NULL, '退款申请 #1 审核通过，线下退款后平台扣减余额。', '2026-03-06 16:20:10');
 
 PRAGMA foreign_keys = ON;

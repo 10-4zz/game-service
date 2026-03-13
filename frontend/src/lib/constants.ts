@@ -1,10 +1,10 @@
 import type { OrderStatus, RechargeStatus, Role } from '../types';
 
 export const orderStatusLabelMap: Record<OrderStatus, string> = {
-  pending_recharge: '待充值',
+  pending_recharge: '待补余额',
   pending_assignment: '待分配',
   in_progress: '进行中',
-  completed: '已完成',
+  completed: '待双方确认',
   settled: '已结算',
   cancelled: '已取消'
 };
@@ -36,6 +36,7 @@ export const navItemsByRole: Record<Role, NavItem[]> = {
     { to: '/admin/dashboard', label: '仪表盘' },
     { to: '/admin/recharges', label: '充值申请' },
     { to: '/admin/recharge-records', label: '充值记录' },
+    { to: '/admin/refunds', label: '退款申请' },
     { to: '/admin/users', label: '用户管理' },
     { to: '/admin/workers', label: '打手管理' },
     { to: '/admin/orders', label: '订单管理' },
@@ -51,6 +52,7 @@ export const navItemsByRole: Record<Role, NavItem[]> = {
     { to: '/customer/dashboard', label: '用户首页' },
     { to: '/customer/recharge', label: '扫码充值' },
     { to: '/customer/recharge-records', label: '充值记录' },
+    { to: '/customer/refunds', label: '申请退款' },
     { to: '/customer/products', label: '服务项目' },
     { to: '/customer/orders/new', label: '下单中心' },
     { to: '/customer/orders', label: '我的订单' }
