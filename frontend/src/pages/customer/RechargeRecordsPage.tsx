@@ -28,7 +28,11 @@ export function CustomerRechargeRecordsPage() {
   }, []);
 
   async function handleDelete(row: RechargeRequest) {
-    const confirmed = window.confirm(`确认删除这条充值申请吗？`);
+    const confirmed = window.confirm(
+      row.status === 'approved'
+        ? '确认删除这条已入账充值记录吗？如果当前余额不足以回滚，本次删除会失败。'
+        : '确认删除这条充值记录吗？'
+    );
     if (!confirmed) {
       return;
     }
@@ -36,7 +40,7 @@ export function CustomerRechargeRecordsPage() {
     setDeletingId(row.id);
     try {
       await apiDelete(`/api/customer/recharge-requests/${row.id}`);
-      window.alert('充值申请删除成功');
+      window.alert('充值记录删除成功');
       await load();
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '删除失败');
@@ -47,7 +51,7 @@ export function CustomerRechargeRecordsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="我的充值记录" description="查看所有充值申请及审核状态。" />
+      <PageHeader title="我的充值记录" description="查看所有扫码充值记录和入账状态。" />
       {loading ? (
         <LoadingView />
       ) : (
@@ -59,8 +63,8 @@ export function CustomerRechargeRecordsPage() {
             { key: 'payment', title: '支付方式', render: (row) => paymentMethodLabelMap[row.payment_method] },
             { key: 'status', title: '状态', render: (row) => <StatusBadge status={row.status} type="recharge" /> },
             { key: 'remark', title: '备注', render: (row) => row.remark || '-' },
-            { key: 'review', title: '审核备注', render: (row) => row.review_remark || '-' },
-            { key: 'created', title: '申请时间', render: (row) => formatDateTime(row.created_at) },
+            { key: 'review', title: '处理备注', render: (row) => row.review_remark || '-' },
+            { key: 'created', title: '创建时间', render: (row) => formatDateTime(row.created_at) },
             {
               key: 'actions',
               title: '操作',
@@ -69,8 +73,7 @@ export function CustomerRechargeRecordsPage() {
                   type="button"
                   className="btn-danger px-3 py-2 text-xs"
                   onClick={() => void handleDelete(row)}
-                  disabled={deletingId === row.id || row.status === 'approved'}
-                  title={row.status === 'approved' ? '已通过的充值申请不能删除' : '删除充值申请'}
+                  disabled={deletingId === row.id}
                 >
                   {deletingId === row.id ? '删除中...' : '删除'}
                 </button>

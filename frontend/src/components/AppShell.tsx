@@ -36,7 +36,7 @@ export function AppShell() {
             <h1 className="mt-2 text-2xl font-semibold tracking-tight">{user.displayName}</h1>
             <p className="mt-1 text-sm text-slate-300">{user.role}</p>
             <p className="mt-4 max-w-[14rem] text-sm leading-6 text-slate-300">
-              管理订单流转、充值审核、打手分配与工资结算。
+              管理订单流转、充值入账、打手分配与工资结算。
             </p>
           </div>
 

@@ -65,8 +65,8 @@ game-service-platform/
 ### 用户端
 
 - 用户余额和订单总览
-- 提交充值申请
-- 查看充值申请状态
+- 扫码支付后直接充值入账
+- 查看充值记录状态
 - 浏览服务项目
 - 余额下单
 - 查看自己的订单与详情
@@ -85,7 +85,7 @@ game-service-platform/
 关键逻辑：
 
 - 用户余额 = `wallet_transactions` 流入 - 流出
-- 充值申请审核通过后，自动写入 `wallet_transactions`
+- 客户扫码支付确认后，系统会直接生成充值记录并写入 `wallet_transactions`
 - 订单创建时，自动扣减用户余额
 - 订单调价时，会自动补扣或退款
 - 订单取消时，会自动退款
@@ -174,7 +174,19 @@ cp .env.example .env
 
 ```env
 VITE_API_BASE=http://127.0.0.1:8787
+VITE_ALIPAY_QR_URL=
+VITE_WECHAT_QR_URL=
 ```
+
+前端支持用环境变量覆盖默认占位收款码：
+
+- `VITE_ALIPAY_QR_URL`：支付宝收款码图片地址
+- `VITE_WECHAT_QR_URL`：微信收款码图片地址
+
+如果不配置，上线后会使用仓库内置的演示二维码占位图：
+
+- `/payment-qr-alipay.svg`
+- `/payment-qr-wechat.svg`
 
 ### 7. 启动 API
 

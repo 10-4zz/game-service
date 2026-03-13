@@ -72,21 +72,21 @@ export function AdminRechargeRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="充值申请管理" description="审核客户充值申请，审核通过后自动入账。" />
+      <PageHeader title="充值申请管理" description="查看直充记录，并处理历史遗留的待处理充值项。" />
 
       <Card title="筛选">
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <label className="label">审核状态</label>
+            <label className="label">处理状态</label>
             <select className="field" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">全部</option>
-              <option value="pending">待审核</option>
-              <option value="approved">已通过</option>
+              <option value="pending">待处理</option>
+              <option value="approved">已入账</option>
               <option value="rejected">已拒绝</option>
             </select>
           </div>
           <div>
-            <label className="label">申请日期</label>
+            <label className="label">创建日期</label>
             <input className="field" type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
           </div>
           <div className="flex items-end">
@@ -136,7 +136,7 @@ export function AdminRechargeRequestsPage() {
             },
             {
               key: 'time',
-              title: '申请时间',
+              title: '创建时间',
               render: (row) => formatDateTime(row.created_at)
             },
             {

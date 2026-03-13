@@ -28,14 +28,14 @@ const roleMeta: Record<
     badge: 'Admin Console',
     title: '管理员登录',
     subtitle: '进入平台总控后台',
-    description: '集中处理订单、充值审核、打手分配、工资结算和服务项目配置。',
+    description: '集中处理订单、充值记录、打手分配、工资结算和服务项目配置。',
     heroClass: 'border-slate-900 bg-slate-950 text-white',
     badgeClass: 'border-amber-300/30 bg-amber-400/15 text-amber-100',
     buttonClass: 'bg-slate-950 text-white hover:bg-slate-800 focus-visible:ring-slate-300',
     linkClass: 'text-amber-700 hover:text-amber-900',
     demoUsername: 'admin',
     demoPassword: 'admin123456',
-    highlights: ['查看平台总览与累计资金', '审核充值申请并处理订单', '统一发起打手工资结算']
+    highlights: ['查看平台总览与累计资金', '查看直充记录并处理历史待处理项', '统一发起打手工资结算']
   },
   worker: {
     badge: 'Worker Desk',
@@ -54,14 +54,14 @@ const roleMeta: Record<
     badge: 'Customer Portal',
     title: '客户登录',
     subtitle: '进入下单与充值中心',
-    description: '查看余额、提交充值申请、浏览服务项目并追踪自己的订单状态。',
+    description: '查看余额、扫码充值、浏览服务项目并追踪自己的订单状态。',
     heroClass: 'border-sky-950 bg-sky-950 text-white',
     badgeClass: 'border-sky-200/30 bg-sky-300/15 text-sky-100',
     buttonClass: 'bg-sky-700 text-white hover:bg-sky-800 focus-visible:ring-sky-200',
     linkClass: 'text-sky-700 hover:text-sky-900',
     demoUsername: 'customer_kevin',
     demoPassword: 'customer123456',
-    highlights: ['余额充足时可直接下单扣款', '查看充值审核状态和历史订单', '支持客户自主注册新账号']
+    highlights: ['余额充足时可直接下单扣款', '扫码支付后可直接入账', '支持客户自主注册新账号']
   }
 };
 

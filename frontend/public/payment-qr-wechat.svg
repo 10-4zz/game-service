@@ -1,0 +1,39 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="40" fill="#F8FAFC"/>
+  <rect x="24" y="24" width="464" height="464" rx="32" fill="white" stroke="#CBD5E1" stroke-width="2"/>
+  <rect x="48" y="48" width="416" height="88" rx="24" fill="#16A34A"/>
+  <text x="256" y="101" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="white">WECHAT PAY</text>
+  <text x="256" y="204" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#0F172A">DEMO PAYMENT QR</text>
+  <text x="256" y="232" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#475569">请替换为你自己的微信收款码</text>
+
+  <rect x="82" y="266" width="64" height="64" rx="10" fill="#0F172A"/>
+  <rect x="96" y="280" width="36" height="36" rx="4" fill="white"/>
+  <rect x="110" y="294" width="8" height="8" rx="2" fill="#0F172A"/>
+
+  <rect x="178" y="266" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="220" y="266" width="64" height="64" rx="10" fill="#0F172A"/>
+  <rect x="234" y="280" width="36" height="36" rx="4" fill="white"/>
+  <rect x="248" y="294" width="8" height="8" rx="2" fill="#0F172A"/>
+
+  <rect x="318" y="266" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="360" y="266" width="64" height="64" rx="10" fill="#0F172A"/>
+  <rect x="374" y="280" width="36" height="36" rx="4" fill="white"/>
+  <rect x="388" y="294" width="8" height="8" rx="2" fill="#0F172A"/>
+
+  <rect x="82" y="346" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="124" y="346" width="64" height="64" rx="10" fill="#0F172A"/>
+  <rect x="138" y="360" width="36" height="36" rx="4" fill="white"/>
+  <rect x="152" y="374" width="8" height="8" rx="2" fill="#0F172A"/>
+
+  <rect x="220" y="346" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="262" y="346" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="318" y="346" width="64" height="64" rx="10" fill="#0F172A"/>
+  <rect x="332" y="360" width="36" height="36" rx="4" fill="white"/>
+  <rect x="346" y="374" width="8" height="8" rx="2" fill="#0F172A"/>
+
+  <rect x="82" y="426" width="64" height="40" rx="6" fill="#0F172A"/>
+  <rect x="178" y="426" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="220" y="426" width="64" height="26" rx="4" fill="#0F172A"/>
+  <rect x="318" y="426" width="26" height="26" rx="4" fill="#0F172A"/>
+  <rect x="360" y="426" width="64" height="40" rx="6" fill="#0F172A"/>
+</svg>

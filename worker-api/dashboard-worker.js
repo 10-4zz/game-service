@@ -730,6 +730,42 @@ function normalizeSettlementRow(row) {
   };
 }
 
+async function deleteRechargeRequestWithRollback(request, env, rechargeRequestId, expectedUserId = null) {
+  const params = expectedUserId === null ? [rechargeRequestId] : [rechargeRequestId, expectedUserId];
+  const rechargeRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, user_id, amount, status
+      FROM recharge_requests
+      WHERE id = ? ${expectedUserId === null ? '' : 'AND user_id = ?'}
+    `,
+    params
+  );
+
+  if (!rechargeRequest) {
+    return fail(request, env, 404, '充值记录不存在。', 'NOT_FOUND');
+  }
+
+  if (rechargeRequest.status === 'approved') {
+    const balance = await getWalletBalance(env.DB, rechargeRequest.user_id);
+    const amount = roundMoney(Number(rechargeRequest.amount));
+    if (balance < amount) {
+      return fail(
+        request,
+        env,
+        409,
+        '该笔已入账充值已经被部分使用，当前余额不足以回滚，不能删除。',
+        'RECHARGE_DELETE_BLOCKED'
+      );
+    }
+
+    await execute(env.DB, `DELETE FROM wallet_transactions WHERE related_recharge_request_id = ?`, [rechargeRequestId]);
+  }
+
+  await execute(env.DB, `DELETE FROM recharge_requests WHERE id = ?`, [rechargeRequestId]);
+  return ok(request, env, { id: rechargeRequestId, deleted: true }, 200, '充值记录已删除。');
+}
+
 async function handleLogin(request, env) {
   const body = await parseJson(request);
   const username = trimString(body.username);
@@ -1270,38 +1306,7 @@ async function handleAdminReviewRecharge(request, env, authUser, rechargeRequest
 }
 
 async function handleAdminDeleteRechargeRequest(request, env, rechargeRequestId) {
-  const rechargeRequest = await queryFirst(
-    env.DB,
-    `
-      SELECT id, user_id, amount, status
-      FROM recharge_requests
-      WHERE id = ?
-    `,
-    [rechargeRequestId]
-  );
-
-  if (!rechargeRequest) {
-    return fail(request, env, 404, '充值申请不存在。', 'NOT_FOUND');
-  }
-
-  if (rechargeRequest.status === 'approved') {
-    const balance = await getWalletBalance(env.DB, rechargeRequest.user_id);
-    const amount = roundMoney(Number(rechargeRequest.amount));
-    if (balance < amount) {
-      return fail(
-        request,
-        env,
-        409,
-        '该笔已通过充值已经被部分使用，当前余额不足以回滚，不能删除。',
-        'RECHARGE_DELETE_BLOCKED'
-      );
-    }
-
-    await execute(env.DB, `DELETE FROM wallet_transactions WHERE related_recharge_request_id = ?`, [rechargeRequestId]);
-  }
-
-  await execute(env.DB, `DELETE FROM recharge_requests WHERE id = ?`, [rechargeRequestId]);
-  return ok(request, env, { id: rechargeRequestId, deleted: true }, 200, '充值申请已删除。');
+  return deleteRechargeRequestWithRollback(request, env, rechargeRequestId);
 }
 
 async function handleAdminOrdersList(request, env) {
@@ -1946,16 +1951,56 @@ async function handleCustomerCreateRechargeRequest(request, env, authUser) {
     return fail(request, env, 400, '请填写正确的充值金额和支付方式。');
   }
 
-  const result = await execute(
-    env.DB,
-    `
-      INSERT INTO recharge_requests (user_id, amount, payment_method, voucher_url, remark, status)
-      VALUES (?, ?, ?, ?, ?, 'pending')
-    `,
-    [authUser.id, roundMoney(amount), paymentMethod, voucherUrl, remark]
-  );
+  const rechargedAmount = roundMoney(amount);
+  const reviewedAt = new Date().toISOString();
+  const reviewRemark = '客户扫码支付后系统自动入账。';
 
-  return ok(request, env, { id: Number(result.meta.last_row_id) }, 201, '充值申请已提交。');
+  try {
+    const result = await execute(
+      env.DB,
+      `
+        INSERT INTO recharge_requests (
+          user_id,
+          amount,
+          payment_method,
+          voucher_url,
+          remark,
+          review_remark,
+          status,
+          reviewed_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 'approved', ?)
+      `,
+      [authUser.id, rechargedAmount, paymentMethod, voucherUrl, remark, reviewRemark, reviewedAt]
+    );
+
+    const rechargeRequestId = Number(result.meta.last_row_id);
+
+    await execute(
+      env.DB,
+      `
+        INSERT INTO wallet_transactions (
+          user_id,
+          type,
+          amount,
+          direction,
+          related_recharge_request_id,
+          remark
+        ) VALUES (?, 'recharge', ?, 'in', ?, ?)
+      `,
+      [authUser.id, rechargedAmount, rechargeRequestId, '客户扫码支付成功，系统自动入账。']
+    );
+
+    return ok(
+      request,
+      env,
+      { id: rechargeRequestId, status: 'approved' },
+      201,
+      '充值成功，余额已入账。'
+    );
+  } catch (error) {
+    return fail(request, env, 500, '充值入账失败，请稍后重试。', 'RECHARGE_CREATE_FAILED', String(error));
+  }
 }
 
 async function handleCustomerRechargeRequestsList(request, env, authUser) {
@@ -1973,26 +2018,7 @@ async function handleCustomerRechargeRequestsList(request, env, authUser) {
 }
 
 async function handleCustomerDeleteRechargeRequest(request, env, authUser, rechargeRequestId) {
-  const rechargeRequest = await queryFirst(
-    env.DB,
-    `
-      SELECT id, user_id, status
-      FROM recharge_requests
-      WHERE id = ? AND user_id = ?
-    `,
-    [rechargeRequestId, authUser.id]
-  );
-
-  if (!rechargeRequest) {
-    return fail(request, env, 404, '充值申请不存在。', 'NOT_FOUND');
-  }
-
-  if (rechargeRequest.status === 'approved') {
-    return fail(request, env, 409, '已通过的充值申请不能删除。', 'RECHARGE_DELETE_BLOCKED');
-  }
-
-  await execute(env.DB, `DELETE FROM recharge_requests WHERE id = ?`, [rechargeRequestId]);
-  return ok(request, env, { id: rechargeRequestId, deleted: true }, 200, '充值申请已删除。');
+  return deleteRechargeRequestWithRollback(request, env, rechargeRequestId, authUser.id);
 }
 
 async function handleCustomerCreateOrder(request, env, authUser) {

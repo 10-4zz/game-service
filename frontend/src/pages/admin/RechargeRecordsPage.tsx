@@ -60,9 +60,9 @@ export function AdminRechargeRecordsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="充值记录" description="查看已审核的充值通过与拒绝记录。" />
+      <PageHeader title="充值记录" description="查看已入账或已拒绝的充值记录。" />
       <Card title="说明">
-        审核通过的记录会自动入账；拒绝记录会保留审核备注，便于后续复核。
+        扫码支付成功后系统会自动入账；历史拒绝记录会保留处理备注，便于后续复核。
       </Card>
       {loading ? (
         <LoadingView />
@@ -83,8 +83,8 @@ export function AdminRechargeRecordsPage() {
               title: '状态',
               render: (row) => <StatusBadge status={row.status} type="recharge" />
             },
-            { key: 'review', title: '审核备注', render: (row) => row.review_remark || '-' },
-            { key: 'reviewed_at', title: '审核时间', render: (row) => formatDateTime(row.reviewed_at) },
+            { key: 'review', title: '处理备注', render: (row) => row.review_remark || '-' },
+            { key: 'reviewed_at', title: '处理时间', render: (row) => formatDateTime(row.reviewed_at) },
             {
               key: 'actions',
               title: '操作',

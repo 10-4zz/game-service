@@ -10,8 +10,8 @@ export const orderStatusLabelMap: Record<OrderStatus, string> = {
 };
 
 export const rechargeStatusLabelMap: Record<RechargeStatus, string> = {
-  pending: '待审核',
-  approved: '已通过',
+  pending: '待处理',
+  approved: '已入账',
   rejected: '已拒绝'
 };
 
@@ -49,8 +49,8 @@ export const navItemsByRole: Record<Role, NavItem[]> = {
   ],
   customer: [
     { to: '/customer/dashboard', label: '用户首页' },
-    { to: '/customer/recharge', label: '提交充值' },
-    { to: '/customer/recharge-records', label: '我的充值' },
+    { to: '/customer/recharge', label: '扫码充值' },
+    { to: '/customer/recharge-records', label: '充值记录' },
     { to: '/customer/products', label: '服务项目' },
     { to: '/customer/orders/new', label: '下单中心' },
     { to: '/customer/orders', label: '我的订单' }

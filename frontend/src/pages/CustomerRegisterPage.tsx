@@ -47,7 +47,7 @@ export function CustomerRegisterPage() {
           <p className="mt-6 text-sm font-medium uppercase tracking-[0.26em] text-sky-100/85">Game Service Platform</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight lg:text-5xl">创建客户账号</h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-white/88">
-            注册后即可提交充值申请、查看可下单服务项目，并在余额充足时直接完成下单。
+            注册后即可扫码充值、查看可下单服务项目，并在余额充足时直接完成下单。
           </p>
 
           <div className="mt-8 grid gap-3">
