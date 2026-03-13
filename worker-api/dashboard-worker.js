@@ -428,9 +428,86 @@ function generateOrderNo() {
     String(now.getUTCHours()).padStart(2, '0'),
     String(now.getUTCMinutes()).padStart(2, '0'),
     String(now.getUTCSeconds()).padStart(2, '0'),
-    String(Math.floor(Math.random() * 1000)).padStart(3, '0')
+    String(now.getUTCMilliseconds()).padStart(3, '0')
   ];
-  return `GSP${parts.join('')}`;
+  const randomSuffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `GSP${parts.join('')}${randomSuffix}`;
+}
+
+function isOrderNoConflict(error) {
+  const message = String(error || '').toLowerCase();
+  return message.includes('orders.order_no') || (message.includes('unique') && message.includes('order_no'));
+}
+
+async function insertOrderWithRetry(
+  db,
+  {
+    customerId,
+    workerId,
+    productId,
+    orderTime,
+    durationHours,
+    unitPrice,
+    totalAmount,
+    commissionAmount,
+    workerIncome,
+    status,
+    remark
+  }
+) {
+  let lastError;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const orderNo = generateOrderNo();
+
+    try {
+      const result = await execute(
+        db,
+        `
+          INSERT INTO orders (
+            order_no,
+            customer_id,
+            worker_id,
+            product_id,
+            order_time,
+            duration_hours,
+            unit_price,
+            total_amount,
+            commission_amount,
+            worker_income,
+            status,
+            remark
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          orderNo,
+          customerId,
+          workerId,
+          productId,
+          orderTime,
+          durationHours,
+          unitPrice,
+          totalAmount,
+          commissionAmount,
+          workerIncome,
+          status,
+          remark
+        ]
+      );
+
+      return {
+        orderId: Number(result.meta.last_row_id),
+        orderNo
+      };
+    } catch (error) {
+      lastError = error;
+      if (!isOrderNoConflict(error) || attempt === 4) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error('ORDER_CREATE_FAILED');
 }
 
 async function sha256Hex(input) {
@@ -1409,41 +1486,19 @@ async function handleAdminCreateOrder(request, env) {
     return fail(request, env, 400, '进行中或已完成订单必须指定打手。');
   }
 
-  const orderNo = generateOrderNo();
-  const insertResult = await execute(
-    env.DB,
-    `
-      INSERT INTO orders (
-        order_no,
-        customer_id,
-        worker_id,
-        product_id,
-        order_time,
-        duration_hours,
-        unit_price,
-        total_amount,
-        commission_amount,
-        worker_income,
-        status,
-        remark
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    [
-      orderNo,
-      customerId,
-      workerId,
-      productId,
-      orderTime,
-      durationHours,
-      unitPrice,
-      totalAmount,
-      commissionAmount,
-      workerIncome,
-      status,
-      remark
-    ]
-  );
-  const orderId = Number(insertResult.meta.last_row_id);
+  const { orderId, orderNo } = await insertOrderWithRetry(env.DB, {
+    customerId,
+    workerId,
+    productId,
+    orderTime,
+    durationHours,
+    unitPrice,
+    totalAmount,
+    commissionAmount,
+    workerIncome,
+    status,
+    remark
+  });
 
   await execute(
     env.DB,
@@ -2069,40 +2124,19 @@ async function handleCustomerCreateOrder(request, env, authUser) {
     return fail(request, env, 400, '余额不足，请先充值。');
   }
 
-  const orderNo = generateOrderNo();
-  const result = await execute(
-    env.DB,
-    `
-      INSERT INTO orders (
-        order_no,
-        customer_id,
-        worker_id,
-        product_id,
-        order_time,
-        duration_hours,
-        unit_price,
-        total_amount,
-        commission_amount,
-        worker_income,
-        status,
-        remark
-      ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 'pending_assignment', ?)
-    `,
-    [
-      orderNo,
-      authUser.id,
-      productId,
-      orderTime,
-      durationHours,
-      unitPrice,
-      totalAmount,
-      commissionAmount,
-      workerIncome,
-      remark
-    ]
-  );
-
-  const orderId = Number(result.meta.last_row_id);
+  const { orderId, orderNo } = await insertOrderWithRetry(env.DB, {
+    customerId: authUser.id,
+    workerId: null,
+    productId,
+    orderTime,
+    durationHours,
+    unitPrice,
+    totalAmount,
+    commissionAmount,
+    workerIncome,
+    status: 'pending_assignment',
+    remark
+  });
   await execute(
     env.DB,
     `
