@@ -20,6 +20,7 @@ const USER_ROLES = ['admin', 'worker', 'customer'];
 const MUTABLE_ORDER_STATUSES = ORDER_STATUSES;
 const RECHARGE_STATUSES = ['pending', 'approved', 'rejected'];
 const PAYMENT_METHODS = ['alipay', 'wechat'];
+const WITHDRAW_METHODS = ['alipay', 'wechat', 'bank'];
 const ROLE_LABEL_MAP = {
   admin: '管理员',
   worker: '打手',
@@ -254,6 +255,33 @@ export default {
         return handleAdminReviewRefundRequest(request, env, auth.user, Number(adminRefundReviewMatch[1]));
       }
 
+      const adminRefundMatch = pathname.match(/^\/api\/admin\/refund-requests\/(\d+)$/);
+      if (adminRefundMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteRefundRequest(request, env, Number(adminRefundMatch[1]));
+      }
+
+      if (pathname === '/api/admin/worker-withdraw-requests' && method === 'GET') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminWorkerWithdrawRequestsList(request, env);
+      }
+
+      const adminWorkerWithdrawReviewMatch = pathname.match(/^\/api\/admin\/worker-withdraw-requests\/(\d+)\/review$/);
+      if (adminWorkerWithdrawReviewMatch && method === 'PUT') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminReviewWorkerWithdrawRequest(request, env, auth.user, Number(adminWorkerWithdrawReviewMatch[1]));
+      }
+
+      const adminWorkerWithdrawMatch = pathname.match(/^\/api\/admin\/worker-withdraw-requests\/(\d+)$/);
+      if (adminWorkerWithdrawMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['admin']);
+        if (auth.response) return auth.response;
+        return handleAdminDeleteWorkerWithdrawRequest(request, env, Number(adminWorkerWithdrawMatch[1]));
+      }
+
       if (pathname === '/api/worker/dashboard' && method === 'GET') {
         const auth = await authenticate(request, env, ['worker']);
         if (auth.response) return auth.response;
@@ -299,6 +327,25 @@ export default {
         return handleWorkerDeleteSettlement(request, env, auth.user, Number(workerSettlementMatch[1]));
       }
 
+      if (pathname === '/api/worker/withdraw-requests' && method === 'GET') {
+        const auth = await authenticate(request, env, ['worker']);
+        if (auth.response) return auth.response;
+        return handleWorkerWithdrawRequestsList(request, env, auth.user);
+      }
+
+      if (pathname === '/api/worker/withdraw-requests' && method === 'POST') {
+        const auth = await authenticate(request, env, ['worker']);
+        if (auth.response) return auth.response;
+        return handleWorkerCreateWithdrawRequest(request, env, auth.user);
+      }
+
+      const workerWithdrawMatch = pathname.match(/^\/api\/worker\/withdraw-requests\/(\d+)$/);
+      if (workerWithdrawMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['worker']);
+        if (auth.response) return auth.response;
+        return handleWorkerDeleteWithdrawRequest(request, env, auth.user, Number(workerWithdrawMatch[1]));
+      }
+
       if (pathname === '/api/customer/dashboard' && method === 'GET') {
         const auth = await authenticate(request, env, ['customer']);
         if (auth.response) return auth.response;
@@ -340,6 +387,13 @@ export default {
         const auth = await authenticate(request, env, ['customer']);
         if (auth.response) return auth.response;
         return handleCustomerRefundRequestsList(request, env, auth.user);
+      }
+
+      const customerRefundMatch = pathname.match(/^\/api\/customer\/refund-requests\/(\d+)$/);
+      if (customerRefundMatch && method === 'DELETE') {
+        const auth = await authenticate(request, env, ['customer']);
+        if (auth.response) return auth.response;
+        return handleCustomerDeleteRefundRequest(request, env, auth.user, Number(customerRefundMatch[1]));
       }
 
       if (pathname === '/api/customer/orders' && method === 'POST') {
@@ -909,6 +963,67 @@ function normalizeRefundRequestRow(row) {
   };
 }
 
+function normalizeWorkerWithdrawRequestRow(row) {
+  return {
+    ...row,
+    amount: roundMoney(Number(row.amount))
+  };
+}
+
+async function getWorkerSettledAmount(db, workerId) {
+  const row = await queryFirst(
+    db,
+    `
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM settlements
+      WHERE worker_id = ?
+    `,
+    [workerId]
+  );
+  return roundMoney(Number(row?.total || 0));
+}
+
+async function getWorkerApprovedWithdrawAmount(db, workerId) {
+  const row = await queryFirst(
+    db,
+    `
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM worker_withdraw_requests
+      WHERE worker_id = ? AND status = 'approved'
+    `,
+    [workerId]
+  );
+  return roundMoney(Number(row?.total || 0));
+}
+
+async function getWorkerPendingWithdrawAmount(db, workerId, excludeRequestId = null) {
+  const params = excludeRequestId === null ? [workerId] : [workerId, excludeRequestId];
+  const row = await queryFirst(
+    db,
+    `
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM worker_withdraw_requests
+      WHERE worker_id = ?
+        AND status = 'pending'
+        ${excludeRequestId === null ? '' : 'AND id != ?'}
+    `,
+    params
+  );
+  return roundMoney(Number(row?.total || 0));
+}
+
+async function getWorkerWithdrawSummary(db, workerId, { excludePendingRequestId = null } = {}) {
+  const settledAmount = await getWorkerSettledAmount(db, workerId);
+  const withdrawnAmount = await getWorkerApprovedWithdrawAmount(db, workerId);
+  const pendingWithdrawAmount = await getWorkerPendingWithdrawAmount(db, workerId, excludePendingRequestId);
+  return {
+    settledAmount,
+    withdrawnAmount,
+    pendingWithdrawAmount,
+    availableWithdrawAmount: roundMoney(Math.max(0, settledAmount - withdrawnAmount - pendingWithdrawAmount))
+  };
+}
+
 async function adjustSettlementForOrderRemoval(db, settlementId, workerIncome) {
   if (!settlementId) {
     return;
@@ -1046,6 +1161,46 @@ async function deleteRechargeRequestWithRollback(request, env, rechargeRequestId
 
   await execute(env.DB, `DELETE FROM recharge_requests WHERE id = ?`, [rechargeRequestId]);
   return ok(request, env, { id: rechargeRequestId, deleted: true }, 200, '充值记录已删除。');
+}
+
+async function deleteRefundRequestWithRollback(
+  request,
+  env,
+  refundRequestId,
+  { expectedUserId = null, allowApprovedRollback = false } = {}
+) {
+  const params = expectedUserId === null ? [refundRequestId] : [refundRequestId, expectedUserId];
+  const refundRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, user_id, amount, status
+      FROM refund_requests
+      WHERE id = ? ${expectedUserId === null ? '' : 'AND user_id = ?'}
+    `,
+    params
+  );
+
+  if (!refundRequest) {
+    return fail(request, env, 404, '退款记录不存在。', 'NOT_FOUND');
+  }
+
+  if (refundRequest.status === 'approved' && !allowApprovedRollback) {
+    return fail(request, env, 409, '已通过的退款记录仅管理员可删除。', 'REFUND_DELETE_BLOCKED');
+  }
+
+  if (refundRequest.status === 'approved') {
+    await execute(
+      env.DB,
+      `
+        INSERT INTO wallet_transactions (user_id, type, amount, direction, remark)
+        VALUES (?, 'adjust', ?, 'in', ?)
+      `,
+      [refundRequest.user_id, roundMoney(Number(refundRequest.amount)), `删除退款申请 #${refundRequestId} 后回退余额。`]
+    );
+  }
+
+  await execute(env.DB, `DELETE FROM refund_requests WHERE id = ?`, [refundRequestId]);
+  return ok(request, env, { id: refundRequestId, deleted: true }, 200, '退款记录已删除。');
 }
 
 async function handleLogin(request, env) {
@@ -2190,6 +2345,112 @@ async function handleAdminReviewRefundRequest(request, env, authUser, refundRequ
   return ok(request, env, { id: refundRequestId, status }, 200, '退款申请审核完成。');
 }
 
+async function handleAdminDeleteRefundRequest(request, env, refundRequestId) {
+  return deleteRefundRequestWithRollback(request, env, refundRequestId, { allowApprovedRollback: true });
+}
+
+async function handleAdminWorkerWithdrawRequestsList(request, env) {
+  const rows = await queryAll(
+    env.DB,
+    `
+      SELECT
+        wr.id,
+        wr.worker_id,
+        wr.amount,
+        wr.withdraw_method,
+        wr.account_name,
+        wr.account_no,
+        wr.remark,
+        wr.review_remark,
+        wr.status,
+        wr.reviewed_by,
+        wr.reviewed_at,
+        wr.created_at,
+        worker.display_name AS worker_name,
+        reviewer.display_name AS reviewer_name
+      FROM worker_withdraw_requests wr
+      JOIN users worker ON worker.id = wr.worker_id
+      LEFT JOIN users reviewer ON reviewer.id = wr.reviewed_by
+      ORDER BY wr.created_at DESC
+    `
+  );
+  return ok(request, env, rows.map(normalizeWorkerWithdrawRequestRow));
+}
+
+async function handleAdminReviewWorkerWithdrawRequest(request, env, authUser, withdrawRequestId) {
+  const body = await parseJson(request);
+  const status = body.status;
+  const reviewRemark = optionalString(body.review_remark);
+
+  if (!RECHARGE_STATUSES.includes(status) || status === 'pending') {
+    return fail(request, env, 400, '提现审核状态只能是 approved 或 rejected。');
+  }
+
+  const withdrawRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, worker_id, amount, status
+      FROM worker_withdraw_requests
+      WHERE id = ?
+    `,
+    [withdrawRequestId]
+  );
+
+  if (!withdrawRequest) {
+    return fail(request, env, 404, '提现申请不存在。', 'NOT_FOUND');
+  }
+  if (withdrawRequest.status !== 'pending') {
+    return fail(request, env, 400, '该提现申请已经处理过了。');
+  }
+
+  if (status === 'approved') {
+    const summary = await getWorkerWithdrawSummary(env.DB, withdrawRequest.worker_id, {
+      excludePendingRequestId: withdrawRequestId
+    });
+    const amount = roundMoney(Number(withdrawRequest.amount));
+    if (summary.availableWithdrawAmount < amount) {
+      return fail(
+        request,
+        env,
+        409,
+        '该打手当前可提现金额不足，无法通过提现申请。',
+        'WORKER_WITHDRAW_BALANCE_NOT_ENOUGH'
+      );
+    }
+  }
+
+  await execute(
+    env.DB,
+    `
+      UPDATE worker_withdraw_requests
+      SET status = ?, review_remark = ?, reviewed_by = ?, reviewed_at = ?
+      WHERE id = ?
+    `,
+    [status, reviewRemark, authUser.id, new Date().toISOString(), withdrawRequestId]
+  );
+
+  return ok(request, env, { id: withdrawRequestId, status }, 200, '提现申请审核完成。');
+}
+
+async function handleAdminDeleteWorkerWithdrawRequest(request, env, withdrawRequestId) {
+  const withdrawRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id
+      FROM worker_withdraw_requests
+      WHERE id = ?
+    `,
+    [withdrawRequestId]
+  );
+
+  if (!withdrawRequest) {
+    return fail(request, env, 404, '提现记录不存在。', 'NOT_FOUND');
+  }
+
+  await execute(env.DB, `DELETE FROM worker_withdraw_requests WHERE id = ?`, [withdrawRequestId]);
+  return ok(request, env, { id: withdrawRequestId, deleted: true }, 200, '提现记录已删除。');
+}
+
 async function handleWorkerDeleteSettlement(request, env, authUser, settlementId) {
   const settlement = await queryFirst(
     env.DB,
@@ -2281,11 +2542,16 @@ async function handleWorkerDashboard(request, env, authUser) {
 
   const totalIncome = roundMoney(Number(incomeRow?.total || 0));
   const settledAmount = roundMoney(Number(settledRow?.total || 0));
+  const withdrawnAmount = await getWorkerApprovedWithdrawAmount(env.DB, authUser.id);
+  const pendingWithdrawAmount = await getWorkerPendingWithdrawAmount(env.DB, authUser.id);
 
   return ok(request, env, {
     totalIncome,
     settledAmount,
     unsettledAmount: roundMoney(totalIncome - settledAmount),
+    withdrawnAmount,
+    pendingWithdrawAmount,
+    availableWithdrawAmount: roundMoney(Math.max(0, settledAmount - withdrawnAmount - pendingWithdrawAmount)),
     orderCount: Number(orderCountRow?.total || 0)
   });
 }
@@ -2398,6 +2664,97 @@ async function handleWorkerSettlementsList(request, env, authUser) {
     [authUser.id]
   );
   return ok(request, env, rows.map(normalizeSettlementRow));
+}
+
+async function handleWorkerWithdrawRequestsList(request, env, authUser) {
+  const rows = await queryAll(
+    env.DB,
+    `
+      SELECT
+        wr.id,
+        wr.worker_id,
+        wr.amount,
+        wr.withdraw_method,
+        wr.account_name,
+        wr.account_no,
+        wr.remark,
+        wr.review_remark,
+        wr.status,
+        wr.reviewed_by,
+        wr.reviewed_at,
+        wr.created_at,
+        reviewer.display_name AS reviewer_name
+      FROM worker_withdraw_requests wr
+      LEFT JOIN users reviewer ON reviewer.id = wr.reviewed_by
+      WHERE wr.worker_id = ?
+      ORDER BY wr.created_at DESC
+    `,
+    [authUser.id]
+  );
+  return ok(request, env, rows.map(normalizeWorkerWithdrawRequestRow));
+}
+
+async function handleWorkerCreateWithdrawRequest(request, env, authUser) {
+  const body = await parseJson(request);
+  const amount = positiveNumber(body.amount);
+  const withdrawMethod = trimString(body.withdraw_method);
+  const accountName = trimString(body.account_name);
+  const accountNo = trimString(body.account_no);
+  const remark = optionalString(body.remark);
+
+  if (amount === null || !WITHDRAW_METHODS.includes(withdrawMethod)) {
+    return fail(request, env, 400, '请填写正确的提现金额和提现方式。');
+  }
+  if (!accountName || !accountNo) {
+    return fail(request, env, 400, '收款姓名和收款账号不能为空。');
+  }
+
+  const withdrawAmount = roundMoney(amount);
+  const summary = await getWorkerWithdrawSummary(env.DB, authUser.id);
+  if (summary.availableWithdrawAmount < withdrawAmount) {
+    return fail(request, env, 409, '当前可提现金额不足。', 'WORKER_WITHDRAW_BALANCE_NOT_ENOUGH');
+  }
+
+  const result = await execute(
+    env.DB,
+    `
+      INSERT INTO worker_withdraw_requests (
+        worker_id,
+        amount,
+        withdraw_method,
+        account_name,
+        account_no,
+        remark,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, 'pending')
+    `,
+    [authUser.id, withdrawAmount, withdrawMethod, accountName, accountNo, remark]
+  );
+
+  return ok(request, env, { id: Number(result.meta.last_row_id) }, 201, '提现申请已提交，等待管理员审核。');
+}
+
+async function handleWorkerDeleteWithdrawRequest(request, env, authUser, withdrawRequestId) {
+  const withdrawRequest = await queryFirst(
+    env.DB,
+    `
+      SELECT id, status
+      FROM worker_withdraw_requests
+      WHERE id = ? AND worker_id = ?
+    `,
+    [withdrawRequestId, authUser.id]
+  );
+
+  if (!withdrawRequest) {
+    return fail(request, env, 404, '提现记录不存在。', 'NOT_FOUND');
+  }
+  if (withdrawRequest.status === 'approved') {
+    return fail(request, env, 409, '已通过的提现记录不能删除。', 'WITHDRAW_DELETE_BLOCKED');
+  }
+
+  await execute(env.DB, `DELETE FROM worker_withdraw_requests WHERE id = ?`, [withdrawRequestId]);
+  return ok(request, env, { id: withdrawRequestId, deleted: true }, 200, '提现记录已删除。');
 }
 
 async function handleCustomerDashboard(request, env, authUser) {
@@ -2594,6 +2951,10 @@ async function handleCustomerRefundRequestsList(request, env, authUser) {
     [authUser.id]
   );
   return ok(request, env, rows.map(normalizeRefundRequestRow));
+}
+
+async function handleCustomerDeleteRefundRequest(request, env, authUser, refundRequestId) {
+  return deleteRefundRequestWithRollback(request, env, refundRequestId, { expectedUserId: authUser.id });
 }
 
 async function handleCustomerCreateOrder(request, env, authUser) {

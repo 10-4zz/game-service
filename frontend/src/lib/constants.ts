@@ -1,4 +1,4 @@
-import type { OrderStatus, RechargeStatus, Role } from '../types';
+import type { OrderStatus, RechargeStatus, Role, WithdrawMethod } from '../types';
 
 export const orderStatusLabelMap: Record<OrderStatus, string> = {
   pending_recharge: '待补余额',
@@ -18,6 +18,12 @@ export const rechargeStatusLabelMap: Record<RechargeStatus, string> = {
 export const paymentMethodLabelMap: Record<'alipay' | 'wechat', string> = {
   alipay: '支付宝',
   wechat: '微信'
+};
+
+export const withdrawMethodLabelMap: Record<WithdrawMethod, string> = {
+  alipay: '支付宝',
+  wechat: '微信',
+  bank: '银行卡'
 };
 
 export const deletableOrderStatuses: OrderStatus[] = ['settled', 'cancelled'];
@@ -46,7 +52,7 @@ export const navItemsByRole: Record<Role, NavItem[]> = {
   worker: [
     { to: '/worker/dashboard', label: '个人首页' },
     { to: '/worker/orders', label: '陪玩记录' },
-    { to: '/worker/settlements', label: '工资结算' }
+    { to: '/worker/settlements', label: '结算/提现' }
   ],
   customer: [
     { to: '/customer/dashboard', label: '用户首页' },

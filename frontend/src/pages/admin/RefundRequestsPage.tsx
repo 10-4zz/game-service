@@ -4,7 +4,7 @@ import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
-import { apiGet, apiPut } from '../../lib/api';
+import { apiDelete, apiGet, apiPut } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { RefundRequest } from '../../types';
 
@@ -12,6 +12,7 @@ export function AdminRefundRequestsPage() {
   const [rows, setRows] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -40,6 +41,28 @@ export function AdminRefundRequestsPage() {
       await load();
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '处理失败');
+    }
+  }
+
+  async function handleDelete(row: RefundRequest) {
+    const confirmed = window.confirm(
+      row.status === 'approved'
+        ? `确认删除退款记录 #${row.id} 吗？删除后会把这笔退款金额恢复回客户余额。`
+        : `确认删除退款记录 #${row.id} 吗？`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(row.id);
+    try {
+      await apiDelete(`/api/admin/refund-requests/${row.id}`);
+      window.alert('退款记录删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -89,18 +112,28 @@ export function AdminRefundRequestsPage() {
               key: 'actions',
               title: '操作',
               render: (row) => (
-                row.status === 'pending' ? (
-                  <div className="flex gap-2">
-                    <button type="button" className="btn-primary px-3 py-2 text-xs" onClick={() => void review(row.id, 'approved')}>
-                      通过
-                    </button>
-                    <button type="button" className="btn-danger px-3 py-2 text-xs" onClick={() => void review(row.id, 'rejected')}>
-                      拒绝
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-slate-600">{row.reviewer_name || '-'}</span>
-                )
+                <div className="flex gap-2">
+                  {row.status === 'pending' ? (
+                    <>
+                      <button type="button" className="btn-primary px-3 py-2 text-xs" onClick={() => void review(row.id, 'approved')}>
+                        通过
+                      </button>
+                      <button type="button" className="btn-danger px-3 py-2 text-xs" onClick={() => void review(row.id, 'rejected')}>
+                        拒绝
+                      </button>
+                    </>
+                  ) : (
+                    <span className="px-2 py-2 text-xs text-slate-600">{row.reviewer_name || '-'}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2 text-xs"
+                    onClick={() => void handleDelete(row)}
+                    disabled={deletingId === row.id}
+                  >
+                    {deletingId === row.id ? '删除中...' : '删除'}
+                  </button>
+                </div>
               )
             }
           ]}

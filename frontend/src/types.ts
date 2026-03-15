@@ -9,6 +9,7 @@ export type OrderStatus =
   | 'cancelled';
 
 export type RechargeStatus = 'pending' | 'approved' | 'rejected';
+export type WithdrawMethod = 'alipay' | 'wechat' | 'bank';
 
 export interface ApiErrorShape {
   code: string;
@@ -136,6 +137,9 @@ export interface WorkerDashboardData {
   totalIncome: number;
   settledAmount: number;
   unsettledAmount: number;
+  withdrawnAmount: number;
+  pendingWithdrawAmount: number;
+  availableWithdrawAmount: number;
   orderCount: number;
 }
 
@@ -156,6 +160,23 @@ export interface RefundRequest {
   user_id: number;
   user_name?: string;
   amount: number;
+  remark: string | null;
+  review_remark?: string | null;
+  status: RechargeStatus;
+  reviewed_by?: number | null;
+  reviewed_at?: string | null;
+  reviewer_name?: string | null;
+  created_at: string;
+}
+
+export interface WorkerWithdrawRequest {
+  id: number;
+  worker_id: number;
+  worker_name?: string;
+  amount: number;
+  withdraw_method: WithdrawMethod;
+  account_name: string;
+  account_no: string;
   remark: string | null;
   review_remark?: string | null;
   status: RechargeStatus;

@@ -3,6 +3,7 @@ PRAGMA foreign_keys = OFF;
 DELETE FROM wallet_transactions;
 DELETE FROM orders;
 DELETE FROM settlements;
+DELETE FROM worker_withdraw_requests;
 DELETE FROM refund_requests;
 DELETE FROM recharge_requests;
 DELETE FROM service_products;
@@ -13,6 +14,7 @@ DELETE FROM sqlite_sequence WHERE name IN (
   'service_products',
   'recharge_requests',
   'refund_requests',
+  'worker_withdraw_requests',
   'wallet_transactions',
   'orders',
   'settlements'
@@ -44,6 +46,23 @@ INSERT INTO settlements (id, worker_id, amount, settlement_time, remark, created
 INSERT INTO refund_requests (id, user_id, amount, remark, review_remark, status, reviewed_by, reviewed_at, created_at) VALUES
   (1, 4, 180.00, '申请退回部分闲置余额', '已线下退款，平台同步扣减余额。', 'approved', 1, '2026-03-06 16:20:00', '2026-03-06 15:50:00'),
   (2, 5, 80.00, '本周暂时不用，申请退回余额。', NULL, 'pending', NULL, NULL, '2026-03-10 12:10:00');
+
+INSERT INTO worker_withdraw_requests (
+  id,
+  worker_id,
+  amount,
+  withdraw_method,
+  account_name,
+  account_no,
+  remark,
+  review_remark,
+  status,
+  reviewed_by,
+  reviewed_at,
+  created_at
+) VALUES
+  (1, 2, 50.00, 'alipay', '阿瑞斯', 'ares-alipay@example.com', '先提现一部分到支付宝。', '已线下打款。', 'approved', 1, '2026-03-06 19:00:00', '2026-03-06 18:30:00'),
+  (2, 2, 30.00, 'bank', '阿瑞斯', '6222020202020202020', '本周剩余收入继续提现。', NULL, 'pending', NULL, NULL, '2026-03-10 18:10:00');
 
 INSERT INTO orders (
   id,

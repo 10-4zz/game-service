@@ -68,6 +68,7 @@ game-service-platform/
 - 仅查看自己的订单
 - 确认订单完成
 - 查看自己的结算记录
+- 提交提现申请并查看审核状态
 - 查看订单详情
 
 ### 用户端
@@ -88,6 +89,7 @@ game-service-platform/
 - `service_products`
 - `recharge_requests`
 - `refund_requests`
+- `worker_withdraw_requests`
 - `wallet_transactions`
 - `orders`
 - `settlements`
@@ -102,6 +104,7 @@ game-service-platform/
 - 若结算记录被删除或管理员回退订单状态，只要订单仍是双方已确认，也可以在订单详情页再次触发结算
 - 管理员仍可手动修改订单状态，也可通过结算页手动结算 `completed` 订单
 - 客户可提交余额退款申请，管理员线下退款后在平台审核通过，系统会扣减对应余额
+- 打手可基于已结算金额提交提现申请，管理员审核通过后视为线下打款完成
 
 ## 默认种子账号
 
@@ -160,6 +163,7 @@ npx wrangler d1 execute game-service-platform-db --local --file=../database/add_
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_users_session_key.sql
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_orders_completion_fields.sql
 npx wrangler d1 execute game-service-platform-db --local --file=../database/add_refund_requests.sql
+npx wrangler d1 execute game-service-platform-db --local --file=../database/add_worker_withdraw_requests.sql
 ```
 
 如果你想直接在 D1 控制台执行 SQL，也可以手动运行：
@@ -187,6 +191,24 @@ CREATE TABLE IF NOT EXISTS refund_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_refund_requests_user_id ON refund_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
+CREATE TABLE IF NOT EXISTS worker_withdraw_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  worker_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  withdraw_method TEXT NOT NULL CHECK (withdraw_method IN ('alipay', 'wechat', 'bank')),
+  account_name TEXT NOT NULL,
+  account_no TEXT NOT NULL,
+  remark TEXT,
+  review_remark TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (worker_id) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_worker_withdraw_requests_worker_id ON worker_withdraw_requests(worker_id);
+CREATE INDEX IF NOT EXISTS idx_worker_withdraw_requests_status ON worker_withdraw_requests(status);
 ```
 
 ### 6. 配置本地环境变量
@@ -274,6 +296,7 @@ npx wrangler d1 execute game-service-platform-db --remote --file=../database/add
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_users_session_key.sql
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_completion_fields.sql
 npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_refund_requests.sql
+npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_worker_withdraw_requests.sql
 ```
 
 如果你是在 Cloudflare Dashboard 的 D1 控制台里手动迁移，也可以直接执行：
@@ -301,6 +324,24 @@ CREATE TABLE IF NOT EXISTS refund_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_refund_requests_user_id ON refund_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
+CREATE TABLE IF NOT EXISTS worker_withdraw_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  worker_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  withdraw_method TEXT NOT NULL CHECK (withdraw_method IN ('alipay', 'wechat', 'bank')),
+  account_name TEXT NOT NULL,
+  account_no TEXT NOT NULL,
+  remark TEXT,
+  review_remark TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by INTEGER,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (worker_id) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_worker_withdraw_requests_worker_id ON worker_withdraw_requests(worker_id);
+CREATE INDEX IF NOT EXISTS idx_worker_withdraw_requests_status ON worker_withdraw_requests(status);
 ```
 
 ### 部署 Workers API
@@ -391,6 +432,10 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `PUT /api/admin/recharge-requests/:id/review`
 - `GET /api/admin/refund-requests`
 - `PUT /api/admin/refund-requests/:id/review`
+- `DELETE /api/admin/refund-requests/:id`
+- `GET /api/admin/worker-withdraw-requests`
+- `PUT /api/admin/worker-withdraw-requests/:id/review`
+- `DELETE /api/admin/worker-withdraw-requests/:id`
 - `GET /api/admin/orders`
 - `GET /api/admin/orders/:id`
 - `POST /api/admin/orders`
@@ -409,6 +454,9 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `DELETE /api/worker/orders/:id`
 - `GET /api/worker/settlements`
 - `DELETE /api/worker/settlements/:id`
+- `GET /api/worker/withdraw-requests`
+- `POST /api/worker/withdraw-requests`
+- `DELETE /api/worker/withdraw-requests/:id`
 
 ### 用户
 
@@ -419,6 +467,7 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - `DELETE /api/customer/recharge-requests/:id`
 - `POST /api/customer/refund-requests`
 - `GET /api/customer/refund-requests`
+- `DELETE /api/customer/refund-requests/:id`
 - `POST /api/customer/orders`
 - `GET /api/customer/orders`
 - `GET /api/customer/orders/:id`
@@ -431,5 +480,6 @@ VITE_API_BASE=https://your-worker-name.your-subdomain.workers.dev
 - 登录使用 JWT Bearer Token，前端存储在 `localStorage`。
 - 订单默认在双方确认完成后自动结算；管理员仍保留手动修改状态和手动结算入口。
 - 退款采用“客户提交申请 -> 管理员线下退款 -> 平台审核通过后扣减余额”的简化模型。
+- 打手提现采用“打手提交申请 -> 管理员线下打款 -> 平台审核通过”的简化模型。
 - 未实现更复杂的审批流、消息通知、细粒度审计日志。
 - 页面采用前端分页，适合 MVP 和中小数据量。

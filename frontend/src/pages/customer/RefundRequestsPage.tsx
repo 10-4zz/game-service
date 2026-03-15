@@ -4,7 +4,7 @@ import { DataTable } from '../../components/DataTable';
 import { LoadingView } from '../../components/LoadingView';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { formatCurrency, formatDateTime } from '../../lib/format';
 import type { RefundRequest } from '../../types';
 
@@ -14,6 +14,7 @@ export function CustomerRefundRequestsPage() {
   const [amount, setAmount] = useState('');
   const [remark, setRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -45,6 +46,24 @@ export function CustomerRefundRequestsPage() {
       window.alert(error instanceof Error ? error.message : '提交失败');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(row: RefundRequest) {
+    const confirmed = window.confirm(`确认删除退款记录 #${row.id} 吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(row.id);
+    try {
+      await apiDelete(`/api/customer/refund-requests/${row.id}`);
+      window.alert('退款记录删除成功');
+      await load();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '删除失败');
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -82,7 +101,22 @@ export function CustomerRefundRequestsPage() {
             { key: 'remark', title: '申请备注', render: (row) => row.remark || '-' },
             { key: 'review_remark', title: '审核备注', render: (row) => row.review_remark || '-' },
             { key: 'created', title: '申请时间', render: (row) => formatDateTime(row.created_at) },
-            { key: 'reviewed', title: '审核时间', render: (row) => formatDateTime(row.reviewed_at) }
+            { key: 'reviewed', title: '审核时间', render: (row) => formatDateTime(row.reviewed_at) },
+            {
+              key: 'actions',
+              title: '操作',
+              render: (row) => (
+                <button
+                  type="button"
+                  className="btn-danger px-3 py-2 text-xs"
+                  onClick={() => void handleDelete(row)}
+                  disabled={deletingId === row.id || row.status === 'approved'}
+                  title={row.status === 'approved' ? '已通过的退款记录仅管理员可删除' : '删除退款记录'}
+                >
+                  {deletingId === row.id ? '删除中...' : '删除'}
+                </button>
+              )
+            }
           ]}
         />
       )}
