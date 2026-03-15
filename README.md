@@ -268,115 +268,33 @@ npm run dev
 
 ### 部署 D1
 
-如果还没有线上 D1：
+直接使用Cloudflare D1 SQL Database部署数据库
 
-```bash
-cd /22zhuxiangyi/game-service-platform/worker-api
-npx wrangler d1 create game-service-platform-db
+创建新数据库，名称可以叫
 ```
-
-将返回的 `database_id` 写入 [wrangler.jsonc](/22zhuxiangyi/game-service-platform/worker-api/wrangler.jsonc)。
-
-导入线上结构：
-
-```bash
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/schema.sql
+game-service-db
 ```
+可以用别的名字，这里只是提供一个示例
 
-导入线上种子：
-
-```bash
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/seed.sql
+在创建好的Database中，打开Console，执行下面文件内的代码：
 ```
-
-如果是升级已有线上 D1，请额外执行：
-
-```bash
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_is_deleted.sql
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_users_session_key.sql
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_orders_completion_fields.sql
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_refund_requests.sql
-npx wrangler d1 execute game-service-platform-db --remote --file=../database/add_worker_withdraw_requests.sql
+database/schema.sql
 ```
+注意：直接复制文件内的代码到Console内执行即可。
 
-如果你是在 Cloudflare Dashboard 的 D1 控制台里手动迁移，也可以直接执行：
 
-```sql
-ALTER TABLE orders ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1));
-CREATE INDEX IF NOT EXISTS idx_orders_is_deleted ON orders(is_deleted);
-ALTER TABLE users ADD COLUMN session_key TEXT NOT NULL DEFAULT '';
-ALTER TABLE orders ADD COLUMN customer_completed INTEGER NOT NULL DEFAULT 0 CHECK (customer_completed IN (0, 1));
-ALTER TABLE orders ADD COLUMN customer_completed_at TEXT;
-ALTER TABLE orders ADD COLUMN worker_completed INTEGER NOT NULL DEFAULT 0 CHECK (worker_completed IN (0, 1));
-ALTER TABLE orders ADD COLUMN worker_completed_at TEXT;
-CREATE TABLE IF NOT EXISTS refund_requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  amount REAL NOT NULL,
-  remark TEXT,
-  review_remark TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  reviewed_by INTEGER,
-  reviewed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (reviewed_by) REFERENCES users(id)
-);
-CREATE INDEX IF NOT EXISTS idx_refund_requests_user_id ON refund_requests(user_id);
-CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
-CREATE TABLE IF NOT EXISTS worker_withdraw_requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  worker_id INTEGER NOT NULL,
-  amount REAL NOT NULL,
-  withdraw_method TEXT NOT NULL CHECK (withdraw_method IN ('alipay', 'wechat', 'bank')),
-  account_name TEXT NOT NULL,
-  account_no TEXT NOT NULL,
-  remark TEXT,
-  review_remark TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  reviewed_by INTEGER,
-  reviewed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (worker_id) REFERENCES users(id),
-  FOREIGN KEY (reviewed_by) REFERENCES users(id)
-);
-CREATE INDEX IF NOT EXISTS idx_worker_withdraw_requests_worker_id ON worker_withdraw_requests(worker_id);
-CREATE INDEX IF NOT EXISTS idx_worker_withdraw_requests_status ON worker_withdraw_requests(status);
-```
+### 使用 Cloudflare Dashboard 手动部署单文件 Worker API
 
-### 部署 Workers API
+可以直接使用单文件版本：
 
-修改 [wrangler.jsonc](/22zhuxiangyi/game-service-platform/worker-api/wrangler.jsonc)：
-
-- `name`
-- `vars.JWT_SECRET`
-- `vars.FRONTEND_ORIGIN`
-- `d1_databases[0].database_id`
-
-然后部署：
-
-```bash
-cd /22zhuxiangyi/game-service-platform/worker-api
-npm run deploy
-```
-
-注意：
-
-- 当前 [wrangler.jsonc](/22zhuxiangyi/game-service-platform/worker-api/wrangler.jsonc) 已指向 [dashboard-worker.js](/22zhuxiangyi/game-service-platform/worker-api/dashboard-worker.js)
-- 如果你之前部署的是 `worker-api/src/index.ts` 对应的版本，那么订单“双方确认后自动结算”、退款审核等新功能不会生效
-
-### 使用 Cloudflare Dashboard 手动部署单文件 Worker
-
-如果你不想通过 Wrangler 部署，也可以直接使用单文件版本：
-
-- Worker 文件：[dashboard-worker.js](/22zhuxiangyi/game-service-platform/worker-api/dashboard-worker.js)
+- Worker 文件：[dashboard-worker.js](./worker-api/dashboard-worker.js)
 - 该文件不依赖本地模块，适合直接粘贴到 Cloudflare Worker Dashboard 编辑器
 
 手动部署步骤：
 
 1. 在 Cloudflare Dashboard 创建一个新的 Worker
 2. 打开在线编辑器
-3. 将 [dashboard-worker.js](/22zhuxiangyi/game-service-platform/worker-api/dashboard-worker.js) 的内容全部粘贴进去
+3. 将 [dashboard-worker.js](./worker-api/dashboard-worker.js) 的内容全部粘贴进去
 4. 在 Worker Settings 中绑定 D1 数据库，绑定名必须是 `DB`
 5. 在 Worker Variables 中添加：
    - `JWT_SECRET`
