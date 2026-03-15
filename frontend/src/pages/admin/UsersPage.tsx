@@ -47,7 +47,9 @@ export function AdminUsersPage() {
   }
 
   async function handleDelete(row: UserSummary) {
-    const confirmed = window.confirm(`确认删除用户「${row.display_name}」吗？该操作会停用账号并从列表中隐藏。`);
+    const confirmed = window.confirm(
+      `确认彻底删除用户「${row.display_name}」吗？该操作会同时清除该用户的订单、钱包流水、充值和退款等关联记录。`
+    );
     if (!confirmed) {
       return;
     }

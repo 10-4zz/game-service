@@ -905,6 +905,63 @@ async function getSettlementOrderStats(db, settlementId) {
   };
 }
 
+async function syncSettlementAfterOrderDeletion(db, settlementId) {
+  if (!settlementId) {
+    return;
+  }
+
+  const stats = await getSettlementOrderStats(db, settlementId);
+  if (stats.total <= 0) {
+    await execute(db, `DELETE FROM settlements WHERE id = ?`, [settlementId]);
+    return;
+  }
+
+  await execute(db, `UPDATE settlements SET amount = ? WHERE id = ?`, [stats.amount, settlementId]);
+}
+
+async function hardDeleteCustomerCascade(db, userId) {
+  const relatedOrders = await queryAll(
+    db,
+    `
+      SELECT id, settlement_id
+      FROM orders
+      WHERE customer_id = ?
+    `,
+    [userId]
+  );
+
+  const affectedSettlementIds = [...new Set(relatedOrders.map((order) => Number(order.settlement_id)).filter(Boolean))];
+
+  await execute(db, `DELETE FROM wallet_transactions WHERE user_id = ?`, [userId]);
+  await execute(db, `DELETE FROM refund_requests WHERE user_id = ?`, [userId]);
+  await execute(db, `DELETE FROM recharge_requests WHERE user_id = ?`, [userId]);
+  await execute(db, `DELETE FROM orders WHERE customer_id = ?`, [userId]);
+
+  for (const settlementId of affectedSettlementIds) {
+    await syncSettlementAfterOrderDeletion(db, settlementId);
+  }
+
+  await execute(db, `DELETE FROM users WHERE id = ?`, [userId]);
+}
+
+async function hardDeleteWorkerCascade(db, workerId) {
+  await execute(
+    db,
+    `
+      DELETE FROM wallet_transactions
+      WHERE related_order_id IN (
+        SELECT id FROM orders WHERE worker_id = ?
+      )
+    `,
+    [workerId]
+  );
+
+  await execute(db, `DELETE FROM orders WHERE worker_id = ?`, [workerId]);
+  await execute(db, `DELETE FROM settlements WHERE worker_id = ?`, [workerId]);
+  await execute(db, `DELETE FROM worker_withdraw_requests WHERE worker_id = ?`, [workerId]);
+  await execute(db, `DELETE FROM users WHERE id = ?`, [workerId]);
+}
+
 function canDeleteOrderStatus(status) {
   return DELETABLE_ORDER_STATUSES.includes(status);
 }
@@ -1430,41 +1487,12 @@ async function handleAdminCreateUser(request, env) {
 
 async function handleAdminDeleteUser(request, env, userId) {
   const user = await getUserById(env.DB, userId);
-  if (!user || user.role !== 'customer' || !user.is_active) {
+  if (!user || user.role !== 'customer') {
     return fail(request, env, 404, '用户不存在。', 'USER_NOT_FOUND');
   }
 
-  const balance = await getWalletBalance(env.DB, userId);
-  if (balance !== 0) {
-    return fail(request, env, 409, '该用户仍有余额，请先处理余额后再删除。', 'USER_DELETE_BLOCKED');
-  }
-
-  const pendingRechargeRow = await queryFirst(
-    env.DB,
-    `SELECT COUNT(*) AS total FROM recharge_requests WHERE user_id = ? AND status = 'pending'`,
-    [userId]
-  );
-  if (Number(pendingRechargeRow?.total || 0) > 0) {
-    return fail(request, env, 409, '该用户仍有待审核充值申请，暂不能删除。', 'USER_DELETE_BLOCKED');
-  }
-
-  const activeOrderRow = await queryFirst(
-    env.DB,
-    `
-      SELECT COUNT(*) AS total
-      FROM orders
-      WHERE customer_id = ?
-        AND status IN ('pending_recharge', 'pending_assignment', 'in_progress')
-    `,
-    [userId]
-  );
-  if (Number(activeOrderRow?.total || 0) > 0) {
-    return fail(request, env, 409, '该用户仍有进行中的订单，暂不能删除。', 'USER_DELETE_BLOCKED');
-  }
-
-  const archivedUsername = `deleted_customer_${userId}_${Date.now()}`;
-  await execute(env.DB, `UPDATE users SET is_active = 0, username = ? WHERE id = ?`, [archivedUsername, userId]);
-  return ok(request, env, { id: userId, deleted: true }, 200, '用户已删除。');
+  await hardDeleteCustomerCascade(env.DB, userId);
+  return ok(request, env, { id: userId, deleted: true }, 200, '用户及其关联记录已彻底删除。');
 }
 
 async function handleAdminWorkersList(request, env) {
@@ -1538,27 +1566,12 @@ async function handleAdminCreateWorker(request, env) {
 
 async function handleAdminDeleteWorker(request, env, workerId) {
   const worker = await getUserById(env.DB, workerId);
-  if (!worker || worker.role !== 'worker' || !worker.is_active) {
+  if (!worker || worker.role !== 'worker') {
     return fail(request, env, 404, '打手不存在。', 'WORKER_NOT_FOUND');
   }
 
-  const activeOrderRow = await queryFirst(
-    env.DB,
-    `
-      SELECT COUNT(*) AS total
-      FROM orders
-      WHERE worker_id = ?
-        AND status NOT IN ('settled', 'cancelled')
-    `,
-    [workerId]
-  );
-  if (Number(activeOrderRow?.total || 0) > 0) {
-    return fail(request, env, 409, '该打手仍有关联中的订单或待结算订单，暂不能删除。', 'WORKER_DELETE_BLOCKED');
-  }
-
-  const archivedUsername = `deleted_worker_${workerId}_${Date.now()}`;
-  await execute(env.DB, `UPDATE users SET is_active = 0, username = ? WHERE id = ?`, [archivedUsername, workerId]);
-  return ok(request, env, { id: workerId, deleted: true }, 200, '打手已删除。');
+  await hardDeleteWorkerCascade(env.DB, workerId);
+  return ok(request, env, { id: workerId, deleted: true }, 200, '打手及其关联记录已彻底删除。');
 }
 
 async function handleAdminProductsList(request, env) {

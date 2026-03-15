@@ -47,7 +47,9 @@ export function AdminWorkersPage() {
   }
 
   async function handleDelete(row: WorkerSummary) {
-    const confirmed = window.confirm(`确认删除打手「${row.display_name}」吗？该操作会停用账号并从列表中隐藏。`);
+    const confirmed = window.confirm(
+      `确认彻底删除打手「${row.display_name}」吗？该操作会同时清除该打手的订单、结算和提现等关联记录。`
+    );
     if (!confirmed) {
       return;
     }
