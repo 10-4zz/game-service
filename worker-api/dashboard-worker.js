@@ -1328,8 +1328,14 @@ async function handleAdminDashboard(request, env) {
     env.DB,
     `SELECT COALESCE(SUM(amount), 0) AS total FROM recharge_requests WHERE status = 'approved'`
   );
-  const userCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM users WHERE role = 'customer'`);
-  const workerCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM users WHERE role = 'worker'`);
+  const userCountRow = await queryFirst(
+    env.DB,
+    `SELECT COUNT(*) AS total FROM users WHERE role = 'customer' AND is_active = 1`
+  );
+  const workerCountRow = await queryFirst(
+    env.DB,
+    `SELECT COUNT(*) AS total FROM users WHERE role = 'worker' AND is_active = 1`
+  );
   const orderCountRow = await queryFirst(env.DB, `SELECT COUNT(*) AS total FROM orders WHERE is_deleted = 0`);
   const settledAmountRow = await queryFirst(env.DB, `SELECT COALESCE(SUM(amount), 0) AS total FROM settlements`);
   const unsettledAmountRow = await queryFirst(
